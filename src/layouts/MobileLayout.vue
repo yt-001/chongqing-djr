@@ -15,6 +15,9 @@ watch(() => route.name, (name) => {
 // 切换 Tab
 const onTabChange = (name) => {
   if (name === 'home') router.push('/')
+  if (name === 'recommend') router.push('/recommend')
+  if (name === 'food') router.push('/food')
+  if (name === 'booking') router.push('/booking')
   if (name === 'mine') router.push('/mine')
 }
 </script>
@@ -25,9 +28,12 @@ const onTabChange = (name) => {
       <router-view />
     </main>
 
-    <nav class="tabbar">
+    <nav class="tabbar" v-if="!route.meta?.hideTabbar">
       <van-tabbar v-model="active" @change="onTabChange">
         <van-tabbar-item name="home" icon="home-o">首页</van-tabbar-item>
+        <van-tabbar-item name="recommend" icon="fire-o">推荐</van-tabbar-item>
+        <van-tabbar-item name="food" icon="smile-o">美食</van-tabbar-item>
+        <van-tabbar-item name="booking" icon="orders-o">预定</van-tabbar-item>
         <van-tabbar-item name="mine" icon="user-o">我的</van-tabbar-item>
       </van-tabbar>
     </nav>

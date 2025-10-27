@@ -12,7 +12,8 @@ export default defineConfig({
   },
   server: {
     host: true, // 允许通过局域网访问，方便手机调试
-    port: 5173,
-    open: false
+    port: 8111,
+    strictPort: true, // 端口被占用时直接报错，确保使用 8111
+    open: true
   }
 })
