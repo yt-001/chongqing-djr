@@ -4,6 +4,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 const Home = () => import('@/views/Home.vue')
 const Recommend = () => import('@/views/Recommend.vue')
 const Food = () => import('@/views/Food.vue')
+const FoodDetail = () => import('@/views/FoodDetail.vue')
 const Booking = () => import('@/views/Booking.vue')
 const Mine = () => import('@/views/Mine.vue')
 
@@ -13,6 +14,7 @@ const router = createRouter({
     { path: '/', name: 'home', component: Home, meta: { title: '首页' } },
     { path: '/recommend', name: 'recommend', component: Recommend, meta: { title: '推荐' } },
     { path: '/food', name: 'food', component: Food, meta: { title: '美食' } },
+    { path: '/food/:id', name: 'food-detail', component: FoodDetail, meta: { title: '美食详情', hideTabbar: true } },
     { path: '/booking', name: 'booking', component: Booking, meta: { title: '预定' } },
     { path: '/mine', name: 'mine', component: Mine, meta: { title: '我的' } },
     { path: '/login', name: 'login', component: () => import('@/views/Login.vue'), meta: { title: '登录', hideTabbar: true } },
