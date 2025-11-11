@@ -9,11 +9,11 @@ export default {
       propList: ['*'],
       viewportUnit: 'vw',
       fontViewportUnit: 'vw',
-      selectorBlackList: ['.ignore', '.hairlines'],
+      selectorBlackList: ['.ignore', '.hairlines', /^\.pc-/], // 桌面端选择器前缀 pc- 不转换
       minPixelValue: 1,
       mediaQuery: false,
       replace: true,
-      exclude: [/node_modules/],
+      exclude: [/node_modules/, /src\/views\/admin/], // 排除管理端/桌面端目录（根据你的实际目录调整）
       landscape: false
     }
   }
