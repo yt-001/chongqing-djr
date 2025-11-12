@@ -1,11 +1,11 @@
-// 景点模块，对应后端 /attractions 控制器
+// 景点模块（用户端列表展示）
 // 说明：按照现有 http 封装风格，统一使用 request，中文注释
 import { request } from '../http.js'
 
 /**
- * 分页查询景点列表
+ * 分页查询景点列表（用户端）
  * 路径：POST /attractions/page
- * 入参示例（分页查询类型）：
+ * 入参示例：
  * {
  *   "pageNum": 1,
  *   "pageSize": 10,

@@ -19,8 +19,17 @@ const router = createRouter({
     { path: '/mine', name: 'mine', component: Mine, meta: { title: '我的' } },
     { path: '/login', name: 'login', component: () => import('@/views/Login.vue'), meta: { title: '登录', hideTabbar: true } },
     { path: '/register', name: 'register', component: () => import('@/views/Register.vue'), meta: { title: '注册', hideTabbar: true } },
-    // 管理员端独立页面
-    { path: '/admin', name: 'admin-home', component: () => import('@/views/admin/AdminHome.vue'), meta: { title: '管理员后台', hideTabbar: true } }
+    // 管理员端：使用子路由在右侧区域渲染内容
+    { path: '/admin', name: 'admin-home', component: () => import('@/views/admin/AdminHome.vue'), meta: { title: '管理员后台', hideTabbar: true },
+      children: [
+        { path: '', redirect: { name: 'admin-dashboard' } },
+        { path: 'dashboard', name: 'admin-dashboard', component: () => import('@/views/admin/AdminDashboard.vue'), meta: { title: '仪表盘', hideTabbar: true } },
+        { path: 'attractions', name: 'admin-attractions', component: () => import('@/views/admin/AdminAttractions.vue'), meta: { title: '景点管理', hideTabbar: true } },
+        { path: 'restaurants', name: 'admin-restaurants', component: () => import('@/views/admin/AdminRestaurants.vue'), meta: { title: '餐饮管理', hideTabbar: true } },
+        { path: 'orders', name: 'admin-orders', component: () => import('@/views/admin/AdminOrders.vue'), meta: { title: '订单管理', hideTabbar: true } },
+        { path: 'user', name: 'admin-user', component: () => import('@/views/admin/AdminUserClient.vue'), meta: { title: '用户端', hideTabbar: true } }
+      ]
+    }
   ],
   scrollBehavior() {
     return { top: 0 }

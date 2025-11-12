@@ -1,0 +1,102 @@
+:root {
+  /* 主色系（参考 A8C0FF、B0E0E6、FFE4E1、FFDAB9） */
+  --el-color-primary: #A8C0FF; /* 主按钮/高亮 */
+  --el-color-primary-light-3: #B0E0E6; /* 悬浮浅色 */
+  --el-color-primary-light-5: #D4E1FF; /* 更浅 */
+
+  /* 背景与文本（尽量柔和） */
+  --el-bg-color: #F7F9FC; /* 页面大背景 */
+  --el-bg-color-overlay: #FFFFFF;
+  --el-text-color-primary: #1F2D3D;
+  --el-text-color-regular: #2C3E50;
+  --el-border-color: #E6E8EB;
+
+  /* 统一圆角为 ~6px */
+  --el-border-radius-small: 6px;
+  --el-border-radius-base: 6px;
+  --el-border-radius-round: 999px;
+}
+
+/* 菜单：仅调色与圆角，不改动间距 */
+.el-menu-vertical-demo .el-menu-item {
+  border-radius: 4px; /* 菜单项圆角减小 */
+}
+.el-menu-vertical-demo .el-menu-item.is-active {
+  background-color: #A8C0FF; /* 选中主色 */
+  color: #fff; /* 与主色形成对比 */
+}
+.el-menu-vertical-demo .el-menu-item:hover {
+  background-color: #B0E0E6; /* 悬浮浅色 */
+}
+
+/* 个人中心下拉：仅圆角与悬浮色，不动间距 */
+.el-dropdown-menu {
+  border-radius: 6px;
+  overflow: hidden;
+}
+.el-dropdown-menu__item {
+  border-radius: 6px;
+}
+.el-dropdown-menu__item:hover {
+  background-color: #FFE4E1; /* 柔和粉色悬浮 */
+  color: var(--el-text-color-primary);
+}
+
+/* 顶部工具栏输入/按钮：统一圆角 */
+.pc-admin__header .el-input__wrapper,
+.pc-admin__header .el-button {
+  border-radius: 6px;
+}
+
+/* 卡片：统一圆角 */
+.el-card {
+  border-radius: 6px;
+}
+
+/* 统一一级/二级菜单的选中与悬停样式（不改动间距，仅配色与圆角） */
+.el-menu-vertical-demo .el-sub-menu__title {
+  border-radius: 4px; /* 与 .el-menu-item 保持一致 */
+}
+/* 悬停：一级标题与二级项同色 */
+.el-menu-vertical-demo .el-sub-menu__title:hover,
+.el-menu-vertical-demo .el-menu-item:hover {
+  background-color: var(--el-color-primary-light-3);
+  color: var(--el-text-color-primary);
+}
+/* 选中：二级项与一级标题被激活时统一主色（一级以展开判定） */
+.el-menu-vertical-demo .el-menu-item.is-active,
+.el-menu-vertical-demo .el-sub-menu.is-opened > .el-sub-menu__title {
+  background-color: var(--el-color-primary);
+  color: #fff;
+}
+/* 二级菜单内的当前项同样保持主色对比 */
+.el-menu-vertical-demo .el-sub-menu .el-menu-item.is-active {
+  background-color: var(--el-color-primary);
+  color: #fff;
+}
+
+/* 覆盖规则：
+   1) 仅一级菜单有悬浮样式；
+   2) 当一级菜单被选中并展开时，该组内所有项（标题+二级项）全部呈现选中样式；
+   3) 取消菜单圆角。 */
+/* 取消圆角 */
+.el-menu-vertical-demo .el-menu-item,
+.el-menu-vertical-demo .el-sub-menu__title {
+  border-radius: 0 !important;
+}
+/* 仅一级菜单悬浮：限制为顶层 menu-item 与顶层 sub-menu 的标题 */
+.el-menu-vertical-demo > .el-menu-item:hover,
+.el-menu-vertical-demo > .el-sub-menu > .el-sub-menu__title:hover {
+  background-color: var(--el-color-primary-light-3);
+  color: var(--el-text-color-primary);
+}
+/* 禁用二级项的悬浮背景（未展开时保持安静） */
+.el-menu-vertical-demo .el-sub-menu .el-menu-item:hover {
+  background-color: transparent;
+}
+/* 一级展开时：整组高亮（标题 + 该组所有二级项） */
+.el-menu-vertical-demo .el-sub-menu.is-opened > .el-sub-menu__title,
+.el-menu-vertical-demo .el-sub-menu.is-opened .el-menu-item {
+  background-color: var(--el-color-primary) !important;
+  color: #fff !important;
+}

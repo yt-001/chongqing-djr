@@ -11,6 +11,7 @@ import 'vant/lib/index.css'
 // 引入 Element Plus（管理端/桌面端）
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
+import './styles/element-theme.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
 const app = createApp(App)

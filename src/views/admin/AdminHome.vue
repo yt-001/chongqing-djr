@@ -2,47 +2,34 @@
   <!-- 管理端页面布局：左侧导航栏 + 顶部工具栏 + 内容区域 -->
   <el-container class="pc-admin">
     <!-- 左侧导航栏 -->
-    <el-aside width="220px" class="pc-admin__aside">
+    <el-aside width="165px" class="pc-admin__aside">
       <div class="logo">重庆文旅·管理端</div>
-      <el-menu :default-active="activeMenu" class="el-menu-vertical-demo" @select="onSelectMenu">
-        <el-menu-item index="dashboard">
-          <el-icon><Monitor /></el-icon>
-          <span>仪表盘</span>
-        </el-menu-item>
-        <el-menu-item index="attractions">
-          <el-icon><Location /></el-icon>
-          <span>景点管理</span>
-        </el-menu-item>
-        <el-menu-item index="restaurants">
-          <el-icon><ForkSpoon /></el-icon>
-          <span>餐饮管理</span>
-        </el-menu-item>
-        <el-menu-item index="orders">
-          <el-icon><Document /></el-icon>
-          <span>订单管理</span>
-        </el-menu-item>
-        <el-menu-item index="users">
-          <el-icon><User /></el-icon>
-          <span>用户管理</span>
-        </el-menu-item>
-      </el-menu>
+      <AdminSidebar :menus="menusRef" :active-menu="activeMenu" @select="onSelectMenu" />
     </el-aside>
 
     <!-- 右侧主区域 -->
     <el-container>
-      <!-- 顶部工具栏 -->
-      <el-header class="pc-admin__header">
+      <!-- 顶部工具栏（左：面包屑 | 中：搜索 | 右：头像+姓名） -->
+      <el-header class="pc-admin__header pc-admin__header--grid">
+        <!-- 左侧：面包屑 -->
         <div class="left-tools">
           <el-breadcrumb separator="/">
             <el-breadcrumb-item v-for="(item, idx) in breadcrumb" :key="idx">{{ item }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>
-        <div class="right-tools">
-          <el-input v-model="searchText" placeholder="搜索..." clearable style="width: 240px" />
+
+        <!-- 中间：独立搜索栏 -->
+        <div class="center-search">
+          <el-input v-model="searchText" placeholder="搜索..." clearable style="width: 420px" />
           <el-button type="primary" @click="onSearch">搜索</el-button>
+        </div>
+
+        <!-- 右侧：头像 + 用户名 + 下拉菜单 -->
+        <div class="right-user">
           <el-dropdown>
-            <span class="el-dropdown-link">
+            <span class="user-trigger">
               <el-avatar :size="28" icon="UserFilled" />
+              <span class="user-name">{{ userName }}</span>
             </span>
             <template #dropdown>
               <el-dropdown-menu>
@@ -56,35 +43,8 @@
 
       <!-- 内容显示区域 -->
       <el-main class="pc-admin__main">
-        <div v-if="activeMenu === 'dashboard'" class="panel">
-          <el-card header="统计总览">
-            <div class="stats">
-              <el-statistic title="今日访问" :value="1268" />
-              <el-statistic title="新增用户" :value="58" />
-              <el-statistic title="订单数量" :value="132" />
-            </div>
-          </el-card>
-        </div>
-        <div v-else-if="activeMenu === 'attractions'" class="panel">
-          <el-card header="景点管理">
-            <el-empty description="即将接入景点列表与编辑功能" />
-          </el-card>
-        </div>
-        <div v-else-if="activeMenu === 'restaurants'" class="panel">
-          <el-card header="餐饮管理">
-            <el-empty description="即将接入餐饮列表与编辑功能" />
-          </el-card>
-        </div>
-        <div v-else-if="activeMenu === 'orders'" class="panel">
-          <el-card header="订单管理">
-            <el-empty description="即将接入订单列表与处理功能" />
-          </el-card>
-        </div>
-        <div v-else-if="activeMenu === 'users'" class="panel">
-          <el-card header="用户管理">
-            <el-empty description="即将接入用户列表与角色配置" />
-          </el-card>
-        </div>
+        <!-- 使用子路由渲染右侧主内容区域 -->
+        <router-view />
       </el-main>
     </el-container>
   </el-container>
@@ -93,19 +53,30 @@
 <script setup>
 // 使用 Element Plus 实现基础管理端布局与交互（桌面端）
 import { ref } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 // 图标按需：已在 main.js 全局注册 @element-plus/icons-vue，这里可直接使用组件标签
-import { Monitor, Location, ForkSpoon, Document, User } from '@element-plus/icons-vue'
+import AdminSidebar from './components/AdminSidebar.vue'
+import menus from './menu/adminMenu.js'
+// 图标已全局注册，无需在此按需引入
 
-// 当前激活的菜单项（默认仪表盘）
-const activeMenu = ref('dashboard')
+const router = useRouter()
+const route = useRoute()
+
+// 菜单数据（动态）
+const menusRef = menus
+// 当前激活的菜单项：跟随路由名称
+const activeMenu = ref(route.name)
 // 面包屑（示例）
-const breadcrumb = ref(['首页', '管理后台', '仪表盘'])
+const breadcrumb = ref(['首页', '管理后台', route.name || 'dashboard'])
 // 顶部搜索框
 const searchText = ref('')
+// 用户名（示例：后续可从登录态/接口获取）
+const userName = ref('管理员')
 
-// 切换菜单时更新面包屑与主内容
+// 选择菜单：使用路由驱动右侧内容
 const onSelectMenu = (index) => {
+  router.push({ name: index })
   activeMenu.value = index
   breadcrumb.value = ['首页', '管理后台', index]
 }
@@ -129,6 +100,14 @@ const onLogout = () => ElMessage.success('已退出登录（示例）')
 .pc-admin { height: 100vh; }
 .pc-admin__aside { border-right: 1px solid #eee; }
 .pc-admin__header { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; border-bottom: 1px solid #eee; background: #fff; }
+/* 三段式网格布局：左/中/右 固定区域，搜索居中 */
+.pc-admin__header--grid { display: grid; grid-template-columns: 1fr auto 1fr; column-gap: 16px; align-items: center; }
+.pc-admin__header--grid .left-tools { justify-self: start; }
+.pc-admin__header--grid .center-search { justify-self: center; display: flex; gap: 8px; }
+.pc-admin__header--grid .right-user { justify-self: end; }
+.user-trigger { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.user-name { color: var(--el-text-color-regular); }
+
 .pc-admin__main { padding: 16px; background: #f5f7fa; }
 .logo { height: 56px; display: flex; align-items: center; padding: 0 12px; font-weight: 600; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
