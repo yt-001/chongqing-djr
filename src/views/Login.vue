@@ -4,7 +4,7 @@
 // 1）左上角新增返回按钮；
 // 2）背景图替换为本地重庆夜景图；
 // 3）管理员登录的第一个输入框为账号，支持邮箱或电话。
-import { ref } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { showToast } from 'vant'
@@ -14,6 +14,12 @@ const activeTab = ref('visitor')
 const router = useRouter()
 // 按钮加载状态（统一一个loading，保证至少1秒动画）
 const loading = ref(false)
+
+// 根据窗口宽度切换 PC/移动端布局（>=1024 视为 PC）
+const isPc = ref(window.innerWidth >= 1024)
+function handleResize() { isPc.value = window.innerWidth >= 1024 }
+onMounted(() => window.addEventListener('resize', handleResize))
+onBeforeUnmount(() => window.removeEventListener('resize', handleResize))
 
 // 返回上一页（优先返回历史，否则回到首页）
 const goBack = () => {
@@ -95,7 +101,8 @@ const goRegister = (role) => {
 <template>
   <div class="login-page">
     <!-- 左上角返回按钮 -->
-    <button class="back-btn" aria-label="返回" @click="goBack">
+    <!-- 移动端显示返回按钮，PC 端不渲染，避免高度与布局影响 -->
+    <button v-if="!isPc" class="back-btn" aria-label="返回" @click="goBack">
       <van-icon name="arrow-left" size="20" />
       <span>返回</span>
     </button>
@@ -106,74 +113,76 @@ const goRegister = (role) => {
       <p>请选择登录方式</p>
     </div>
 
-    <div class="panel">
-      <van-tabs class="seg-tabs" v-model:active="activeTab" shrink swipeable>
-      <van-tab title="用户登录" name="visitor">
-        <van-form @submit="onSubmitVisitor">
-          <van-cell-group inset>
-            <!-- 账号为邮箱或电话 -->
-            <van-field
-              v-model="visitorForm.emailOrPhone"
-              name="emailOrPhone"
-              label="账号"
-              placeholder="请输入邮箱或电话"
-              clearable
-              required
-              type="text"
-              inputmode="email"
-              autocomplete="username"
-            />
-            <van-field
-              v-model="visitorForm.password"
-              name="password"
-              type="password"
-              label="密码"
-              placeholder="请输入密码"
-              clearable
-              required
-              autocomplete="current-password"
-            />
-          </van-cell-group>
-          <div class="actions">
-            <van-button round block type="primary" :loading="loading" :disabled="loading" native-type="submit">登 录</van-button>
-            <van-button round block type="default" @click="goRegister('visitor')">注 册</van-button>
-          </div>
-        </van-form>
-      </van-tab>
+    <!-- 桌面端：Element Plus 布局；移动端：Vant 布局 -->
+    <div v-if="isPc" class="pc-login">
+      <!-- PC 返回按钮：Element Plus，固定定位不占文档高度 -->
+      <el-button class="pc-back" type="default" @click="goBack">
+        <arrow-left />
+        <span style="margin-left:6px;">返回</span>
+      </el-button>
+      <div class="pc-card">
+        <el-tabs v-model="activeTab" class="pc-tabs">
+          <el-tab-pane label="用户登录" name="visitor">
+            <el-form :model="visitorForm" label-width="80px" class="pc-form">
+              <el-form-item label="账号">
+                <el-input v-model="visitorForm.emailOrPhone" placeholder="请输入邮箱或电话" autocomplete="username" />
+              </el-form-item>
+              <el-form-item label="密码">
+                <el-input v-model="visitorForm.password" type="password" placeholder="请输入密码" autocomplete="current-password" />
+              </el-form-item>
+              <div class="pc-actions">
+                <el-button type="primary" :loading="loading" :disabled="loading" @click="onSubmitVisitor">登 录</el-button>
+                <el-button @click="goRegister('visitor')">注 册</el-button>
+              </div>
+            </el-form>
+          </el-tab-pane>
+          <el-tab-pane label="管理员登录" name="admin">
+            <el-form :model="adminForm" label-width="80px" class="pc-form">
+              <el-form-item label="账号">
+                <el-input v-model="adminForm.emailOrPhone" placeholder="请输入邮箱或电话" autocomplete="username" />
+              </el-form-item>
+              <el-form-item label="密码">
+                <el-input v-model="adminForm.password" type="password" placeholder="请输入密码" autocomplete="current-password" />
+              </el-form-item>
+              <div class="pc-actions">
+                <el-button type="primary" :loading="loading" :disabled="loading" @click="onSubmitAdmin">登 录</el-button>
+                <el-button @click="goRegister('admin')">注 册</el-button>
+              </div>
+            </el-form>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+    </div>
 
-      <van-tab title="管理员登录" name="admin">
-        <van-form @submit="onSubmitAdmin">
-          <van-cell-group inset>
-            <!-- 将上方输入框改为账号（邮箱或电话） -->
-            <van-field
-              v-model="adminForm.emailOrPhone"
-              name="emailOrPhone"
-              label="账号"
-              placeholder="请输入邮箱或电话"
-              clearable
-              required
-              type="text"
-              inputmode="email"
-              autocomplete="username"
-            />
-            <van-field
-              v-model="adminForm.password"
-              name="password"
-              type="password"
-              label="密码"
-              placeholder="请输入密码"
-              clearable
-              required
-              autocomplete="current-password"
-            />
-          </van-cell-group>
-          <div class="actions">
-            <van-button round block type="primary" :loading="loading" :disabled="loading" native-type="submit">登 录</van-button>
-            <van-button round block type="default" @click="goRegister('admin')">注 册</van-button>
-          </div>
-        </van-form>
-      </van-tab>
-    </van-tabs>
+    <div v-else class="m-login">
+      <div class="panel">
+        <van-tabs class="seg-tabs" v-model:active="activeTab" shrink swipeable>
+        <van-tab title="用户登录" name="visitor">
+          <van-form @submit="onSubmitVisitor">
+            <van-cell-group inset>
+              <van-field v-model="visitorForm.emailOrPhone" name="emailOrPhone" label="账号" placeholder="请输入邮箱或电话" clearable required type="text" inputmode="email" autocomplete="username" />
+              <van-field v-model="visitorForm.password" name="password" type="password" label="密码" placeholder="请输入密码" clearable required autocomplete="current-password" />
+            </van-cell-group>
+            <div class="actions">
+              <van-button round block type="primary" :loading="loading" :disabled="loading" native-type="submit">登 录</van-button>
+              <van-button round block type="default" @click="goRegister('visitor')">注 册</van-button>
+            </div>
+          </van-form>
+        </van-tab>
+        <van-tab title="管理员登录" name="admin">
+          <van-form @submit="onSubmitAdmin">
+            <van-cell-group inset>
+              <van-field v-model="adminForm.emailOrPhone" name="emailOrPhone" label="账号" placeholder="请输入邮箱或电话" clearable required type="text" inputmode="email" autocomplete="username" />
+              <van-field v-model="adminForm.password" name="password" type="password" label="密码" placeholder="请输入密码" clearable required autocomplete="current-password" />
+            </van-cell-group>
+            <div class="actions">
+              <van-button round block type="primary" :loading="loading" :disabled="loading" native-type="submit">登 录</van-button>
+              <van-button round block type="default" @click="goRegister('admin')">注 册</van-button>
+            </div>
+          </van-form>
+        </van-tab>
+      </van-tabs>
+      </div>
     </div>
   </div>
 </template>
@@ -190,6 +199,8 @@ const goRegister = (role) => {
   position: relative;
   padding: 24px 16px 32px;
   box-sizing: border-box;
+  max-width: 100vw;            /* 防止宽度超出视口 */
+  overflow-x: hidden;          /* 避免横向滚动 */
 }
 .login-page::before {
   content: '';
@@ -216,6 +227,10 @@ const goRegister = (role) => {
   border: none;
 }
 .back-btn:active { transform: scale(0.98); }
+/* 桌面端强制隐藏（双保险），防止样式层面影响布局或高度 */
+@media (min-width: 1024px) {
+  .back-btn { display: none !important; }
+}
 
 /* 顶部品牌区 */
 .brand {
@@ -226,6 +241,10 @@ const goRegister = (role) => {
 }
 .brand h1 { margin: 0 0 6px; font-size: 22px; }
 .brand p { margin: 0; font-size: 13px; opacity: 0.9; }
+@media (min-width: 1024px) {
+  /* 桌面端：压缩标题区，避免过高 */
+  .brand { padding: 24px 0 8px; }
+}
 
 /* Tabs 分段样式（圆角胶囊） */
 .seg-tabs :deep(.van-tabs__wrap) {
@@ -246,10 +265,23 @@ const goRegister = (role) => {
   color: #fff;
 }
 
+/* 响应式居中容器：PC 端居中、移动端全宽 */
+.login-container {
+  max-width: 920px;              /* PC 端最大宽度，避免过宽变形 */
+  margin: 0 auto;                /* 居中 */
+  width: 100%;
+}
+@media (max-width: 768px) {
+  .login-container { max-width: 560px; }
+}
+@media (max-width: 480px) {
+  .login-container { max-width: 100%; }
+}
+
 /* 分区登录整体白色面板 */
 .panel {
   margin: 4px 12px 0;
-  padding: 6px 0 2px;
+  padding: 12px 0 8px;           /* PC 端适当加大内边距 */
   background: rgba(255, 255, 255, 0.98);
   border-radius: 14px;
   box-shadow: 0 10px 24px rgba(0,0,0,0.16);
@@ -257,7 +289,7 @@ const goRegister = (role) => {
 
 /* 表单卡片优化（与 panel 统一） */
 :deep(.van-cell-group--inset) {
-  margin: 8px 12px;
+  margin: 12px 16px;             /* PC 端适当增大左右留白 */
   border-radius: 12px;
   overflow: hidden;
   box-shadow: none;
@@ -266,8 +298,37 @@ const goRegister = (role) => {
 
 /* 表单按钮区 */
 .actions {
-  margin: 16px 12px;            /* 外边距 */
+  margin: 16px 16px;            /* 与表单留白统一 */
   display: grid;                 /* 网格布局，便于间距控制 */
   gap: 12px;                     /* 垂直间距 */
 }
+
+/* 适配桌面端按钮宽度：在 PC 端按钮不要100%占满，以视觉居中为主 */
+@media (min-width: 1024px) {
+  .actions :deep(.van-button) { width: 60%; justify-self: center; }
+}
+
+/* 桌面端 Element Plus 卡片与表单样式 */
+.pc-login { display: flex; justify-content: center; }
+.pc-card { width: 680px; max-width: 92vw; background: rgba(255,255,255,0.98); border-radius: 12px; box-shadow: 0 10px 24px rgba(0,0,0,0.16); padding: 16px 20px; }
+.pc-tabs :deep(.el-tabs__nav-wrap) { margin-bottom: 12px; }
+.pc-form { padding: 8px 6px; }
+.pc-actions { display: flex; gap: 12px; justify-content: center; margin-top: 8px; }
+.pc-form :deep(.el-input__wrapper) { border-radius: 8px; }
+/* PC 返回按钮：固定定位，不占文档流高度 */
+.pc-back { position: fixed; top: 18px; left: 18px; z-index: 20; }
+/* 移动端容器：保留原有 Vant 样式作用域 */
+.m-login .seg-tabs :deep(.van-tabs__wrap) { margin: 8px 12px 12px; background: rgba(255, 255, 255, 0.95); border-radius: 14px; padding: 4px; box-shadow: 0 6px 18px rgba(0,0,0,0.10); }
+.m-login .panel { margin: 4px 12px 0; padding: 6px 0 2px; background: rgba(255, 255, 255, 0.98); border-radius: 14px; box-shadow: 0 10px 24px rgba(0,0,0,0.16); }
+.m-login .actions { margin: 16px 12px; display: grid; gap: 12px; }
+
+/* 桌面端容器：Element Plus 样式（pc-前缀避免参与移动端 px->vw） */
+.pc-login { display: flex; justify-content: center; }
+.pc-card { width: 680px; max-width: 92vw; background: rgba(255,255,255,0.98); border-radius: 12px; box-shadow: 0 10px 24px rgba(0,0,0,0.16); padding: 16px 20px; }
+.pc-tabs :deep(.el-tabs__nav-wrap) { margin-bottom: 12px; }
+.pc-form { padding: 8px 6px; }
+.pc-actions { display: flex; gap: 12px; justify-content: center; margin-top: 8px; }
+.pc-form :deep(.el-input__wrapper) { border-radius: 8px; }
+/* PC 返回按钮：固定定位，不占文档流高度 */
+.pc-back { position: fixed; top: 18px; left: 18px; z-index: 20; }
 </style>
