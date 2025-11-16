@@ -15,6 +15,12 @@ export default [
     ]
   },
   {
+    label: '住宿管理', name: 'admin-accommodations-root', icon: 'House',
+    children: [
+      { label: '住宿列表', name: 'admin-accommodations' }
+    ]
+  },
+  {
     label: '订单管理', name: 'admin-orders-root', icon: 'Document',
     children: [
       { label: '订单列表', name: 'admin-orders' }
