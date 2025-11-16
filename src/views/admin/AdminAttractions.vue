@@ -92,42 +92,51 @@
             </el-form-item>
           </div>
 
-          <!-- 第三行：门票价格、封面图片、图片JSON（三列） -->
-          <div class="row row-3">
-            <el-form-item label="门票价格" class="col col-1" prop="ticketPrice" required>
-              <el-input v-model="form.ticketPrice" placeholder="请输入价格" />
-            </el-form-item>
-            <el-form-item label="封面图片" class="col col-1" prop="coverImage" required>
-              <el-input v-model="form.coverImage" placeholder="封面图片地址" />
-            </el-form-item>
-            <el-form-item label="图片JSON" class="col col-1" prop="images" required>
-              <el-input v-model="form.images" placeholder='["url1","url2"]' />
-            </el-form-item>
-          </div>
-
-          <!-- 第四行：开放时间、创建时间、更新时间（三列合并展示） -->
-          <div class="row row-3">
-            <el-form-item label="开放时间" class="col col-1" prop="openHours" required>
-              <el-input v-model="form.openHours" placeholder="如：9:00-18:00" />
-            </el-form-item>
-            <el-form-item label="创建时间" class="col col-1">
-              <el-input v-model="form.createTime" disabled />
-            </el-form-item>
-            <el-form-item label="更新时间" class="col col-1">
-              <el-input v-model="form.updateTime" disabled />
-            </el-form-item>
-          </div>
-          <!-- 最底部：景点描述（单独一行，跨三列，两端对齐） -->
-          <div class="row row-3">
-            <el-form-item label="景点描述" class="col col-3" prop="description" required>
-              <el-input
-                v-model="form.description"
-                type="textarea"
-                :rows="4"
-                placeholder="请输入景点描述"
-                class="desc-textarea"
-              />
-            </el-form-item>
+          <!-- 第三四行与右侧图片预览改为分栏布局：左侧表单 + 右侧图片预览 -->
+          <div class="layout-2-1">
+            <div class="layout-left">
+              <div class="row row-2">
+                <el-form-item label="门票价格" class="col col-1" prop="ticketPrice" required>
+                  <el-input v-model="form.ticketPrice" placeholder="请输入价格" />
+                </el-form-item>
+                <el-form-item label="开放时间" class="col col-1" prop="openHours" required>
+                  <el-input v-model="form.openHours" placeholder="如：9:00-18:00" />
+                </el-form-item>
+                <div class="col col-1" />
+              </div>
+              <div class="row row-2" v-if="dialog.mode !== 'create'">
+                <el-form-item label="创建时间" class="col col-1">
+                  <el-input v-model="form.createTime" disabled />
+                </el-form-item>
+                <el-form-item label="更新时间" class="col col-1">
+                  <el-input v-model="form.updateTime" disabled />
+                </el-form-item>
+              </div>
+              <div class="row row-3">
+                <el-form-item label="景点描述" class="col col-3 desc-left" prop="description" required>
+                  <el-input v-model="form.description" type="textarea" :rows="4" placeholder="请输入景点描述" class="desc-textarea" />
+                </el-form-item>
+              </div>
+            </div>
+            <div class="layout-right">
+              <!-- 新增/编辑/查看：统一显示样式，始终保持固定尺寸 -->
+              <div v-if="dialog.mode !== 'view'" class="image-aside" :title="coverUrl ? '点击预览图片' : '点击上传图片'" @click="coverUrl ? openPreview() : triggerUpload()">
+                <el-image v-if="coverUrl" :src="coverUrl" fit="cover" class="cover" />
+                <div v-else class="cover placeholder">点击上传图片</div>
+                <div v-if="uploadedCount > 0" class="badge">+{{ uploadedCount }}</div>
+                <!-- 有图片时显示清除按钮 -->
+                <div v-if="coverUrl || uploadedCount > 0" class="clear-btn" @click.stop="clearImages">
+                  <el-icon class="clear-icon"><Close /></el-icon>
+                </div>
+                <!-- 隐藏的上传组件 -->
+                <input ref="fileInputRef" type="file" multiple accept="image/*" style="display: none" @change="onFileInputChange">
+              </div>
+              <div v-else class="image-aside" @click="openPreview" title="点击预览全部图片">
+                <el-image v-if="coverUrl" :src="coverUrl" fit="cover" class="cover" />
+                <div v-else class="cover placeholder">无封面</div>
+                <div v-if="imagesCount > 0" class="badge">+{{ imagesCount }}</div>
+              </div>
+            </div>
           </div>
         </el-form>
       </div>
@@ -140,12 +149,27 @@
       </template>
     </el-dialog>
   </div>
+
+    <!-- 图片轮播预览弹窗（与餐厅一致） -->
+    <el-dialog v-model="preview.visible" title="图片预览" width="800px" append-to-body>
+      <div class="preview-body">
+        <el-carousel height="420px" trigger="click" :autoplay="false" indicator-position="outside">
+          <el-carousel-item v-for="(img, idx) in previewImages" :key="idx">
+            <el-image :src="img" fit="contain" class="preview-image" />
+          </el-carousel-item>
+        </el-carousel>
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="preview.visible=false">关闭</el-button>
+      </template>
+    </el-dialog>
 </template>
 
 <script setup>
 // 景点列表（管理端）：服务端分页与筛选
 import { ref, reactive, computed, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { View, Close } from '@element-plus/icons-vue'
 import { fetchAdminAttractionsPage, fetchAdminAttractionById, createAdminAttraction, updateAdminAttraction, deleteAdminAttraction } from '@/api'
 
 // 统一搜索条件（与接口请求体一致）
@@ -166,6 +190,7 @@ const detailLoading = ref(false)
 let detailSeq = 0 // 详情请求序列号，用于防止查看响应覆盖新增表单
 const dialogKey = ref(0) // 强制重建表单实例，清空内部缓存
 const formRef = ref()
+const fileInputRef = ref()
 // 原始数据快照：用于编辑时只提交变更字段
 const originalForm = ref(null)
 const rules = {
@@ -213,6 +238,35 @@ const dialogTitle = computed(() => {
   if (dialog.mode === 'edit') return '编辑景点'
   return '景点详情'
 })
+
+// 简化的图片管理
+const currentImageData = ref({
+  files: [],
+  coverUrl: '',
+  imageUrls: []
+})
+
+// 简化的计算属性
+const coverUrl = computed(() => currentImageData.value.coverUrl)
+const imageList = computed(() => currentImageData.value.imageUrls)
+const imagesCount = computed(() => Math.max(0, currentImageData.value.imageUrls.length - 1))
+const uploadedCount = computed(() => Math.max(0, currentImageData.value.imageUrls.length - 1))
+
+const previewImages = computed(() => {
+  const allUrls = []
+  if (currentImageData.value.coverUrl) {
+    allUrls.push(currentImageData.value.coverUrl)
+  }
+  allUrls.push(...currentImageData.value.imageUrls.filter(url => url !== currentImageData.value.coverUrl))
+  return [...new Set(allUrls)]
+})
+const preview = reactive({ visible: false })
+function openPreview() { if (previewImages.value.length > 0) preview.visible = true }
+
+function triggerUpload() {
+  // 直接触发原生文件选择器
+  fileInputRef.value?.click()
+}
 
 // 选择集（用于删除/批删）
 const selectedRows = ref([])
@@ -262,7 +316,10 @@ function onPageChange(p) { page.current = p; loadData() }
 
 // 占位：新增/查看/删除/批量删除（接口接入后替换）
 function resetForm() {
-  // 清空所有字段，避免任何残留
+  // 清理图片数据
+  clearImageData()
+  
+  // 重置表单
   form.id = ''
   form.name = ''
   form.description = ''
@@ -276,6 +333,27 @@ function resetForm() {
   form.contactPhone = ''
   form.createTime = ''
   form.updateTime = ''
+}
+
+// 清理图片数据的独立函数
+function clearImageData() {
+  // 清理blob URLs
+  currentImageData.value.files.forEach(file => {
+    if (file.blobUrl) {
+      URL.revokeObjectURL(file.blobUrl)
+    }
+  })
+  
+  // 重置图片数据
+  currentImageData.value = {
+    files: [],
+    coverUrl: '',
+    imageUrls: []
+  }
+  
+  // 同步到表单
+  form.coverImage = ''
+  form.images = JSON.stringify([])
 }
 
 function onAdd() {
@@ -313,6 +391,10 @@ async function onView(row) {
     form.contactPhone = data?.contactPhone ?? ''
     form.createTime = data?.createTime ?? ''
     form.updateTime = data?.updateTime ?? ''
+    
+    // 加载图片数据到显示状态
+    loadImageData()
+    
     // 保存一份原始快照，用于后续差异提交
     originalForm.value = {
       id: form.id,
@@ -351,9 +433,33 @@ function onEdit() {
 function onDialogClosed() {
   // 弹窗关闭统一重置，清空表单并失效所有未完成的查看响应
   detailSeq++
+  clearImageData()
   resetForm()
   detailLoading.value = false
   dialogKey.value++
+}
+
+// 从表单数据加载图片到显示状态
+function loadImageData() {
+  const coverImage = form.coverImage || ''
+  let imageUrls = []
+  
+  try {
+    // 尝试解析JSON数组
+    const parsed = JSON.parse(form.images || '[]')
+    imageUrls = Array.isArray(parsed) ? parsed.filter(Boolean) : []
+  } catch {
+    // 如果不是JSON，尝试逗号分隔
+    if (form.images) {
+      imageUrls = form.images.split(',').map(s => s.trim()).filter(Boolean)
+    }
+  }
+  
+  currentImageData.value = {
+    files: [],
+    coverUrl: coverImage,
+    imageUrls: coverImage ? [coverImage, ...imageUrls] : imageUrls
+  }
 }
 
 function onSubmitEdit() {
@@ -467,6 +573,50 @@ function onSubmitCreate() {
   })
 }
 
+function onFileInputChange(event) {
+  const files = Array.from(event.target.files || [])
+  
+  if (files.length === 0) {
+    return
+  }
+  
+  // 清理之前的blob URLs
+  currentImageData.value.files.forEach(oldFile => {
+    if (oldFile.blobUrl) {
+      URL.revokeObjectURL(oldFile.blobUrl)
+    }
+  })
+  
+  // 处理新文件
+  const urls = files.map(file => {
+    const blobUrl = URL.createObjectURL(file)
+    return { file, blobUrl }
+  })
+  
+  // 更新显示数据
+  currentImageData.value = {
+    files: urls,
+    coverUrl: urls[0]?.blobUrl || '',
+    imageUrls: urls.map(item => item.blobUrl)
+  }
+  
+  // 同步到表单（用于提交）
+  if (urls.length > 0) {
+    form.coverImage = urls[0].blobUrl
+    form.images = JSON.stringify(urls.slice(1).map(item => item.blobUrl))
+  } else {
+    form.coverImage = ''
+    form.images = JSON.stringify([])
+  }
+  
+  // 清空input的值，确保下次选择同一文件时能触发change事件
+  event.target.value = ''
+}
+
+function clearImages() {
+  clearImageData()
+}
+
 // 首次加载
 loadData()
 </script>
@@ -488,8 +638,9 @@ loadData()
 
 /* 弹窗表单紧凑多列布局 */
 .dialog-form { width: 100%; }
-.dialog-form .row { display: grid; gap: 12px; margin-bottom: 12px; }
+.dialog-form .row { display: grid; margin-bottom: 12px; }
 .dialog-form .row-3 { grid-template-columns: repeat(3, 1fr); }
+.dialog-form .row-2 { grid-template-columns: repeat(2, 1fr); }
 .dialog-form .col-2 { grid-column: span 2; }
 .dialog-form .col-3 { grid-column: span 3; }
 .dialog-form .col-1 { grid-column: span 1; }
@@ -497,6 +648,34 @@ loadData()
 .dialog-form :deep(.el-form-item__label) { align-self: start; padding-top: 4px; }
 .desc-textarea :deep(textarea) { text-align: justify; }
 .meta-row :deep(.el-input__wrapper) { background: #fafafa; }
+
+/* 新增：左右分栏与右侧图片区域样式，复用餐厅风格 */
+.layout-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; align-items: start; }
+.layout-right { display: block; }
+.image-aside { position: relative; width: 100%; height: 180px; border: 1px dashed var(--el-border-color); border-radius: 6px; display: flex; align-items: center; justify-content: center; background: #fafafa; overflow: hidden; margin-top: 8px; margin-right: 2px; cursor: pointer; }
+.image-aside:hover { border-color: var(--el-color-primary); }
+.image-aside.uploader { cursor: default; height: auto; padding: 8px; display: block; text-align: center; }
+.uploader-title { font-size: 12px; color: #999; margin-bottom: 6px; }
+.uploader-unified { margin-bottom: 6px; display: inline-block; }
+.image-aside .cover { width: 100%; height: 100%; object-fit: cover; }
+.image-aside .placeholder { width: 100%; height: 100%; color: #999; display: flex; align-items: center; justify-content: center; background: repeating-linear-gradient(45deg,#f5f5f5,#f5f5f5 10px,#ffffff 10px,#ffffff 20px); }
+.image-aside .badge { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 10px; }
+
+/* 图片蒙版和查看图标 */
+.image-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease; cursor: pointer; }
+.image-aside:hover .image-overlay { opacity: 1; }
+.preview-icon { color: #fff; font-size: 32px; }
+
+/* 清除按钮样式 */
+.clear-btn { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; background: rgba(220,53,69,0.9); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; transition: all 0.3s ease; }
+.clear-btn:hover { background: rgba(220,53,69,1); transform: scale(1.1); }
+.clear-icon { color: #fff; font-size: 14px; }
+
+/* 隐藏的上传组件 */
+.hidden-upload { display: none; }
+
+.preview-body { padding: 4px; }
+.preview-image { width: 100%; height: 100%; }
 
 .dialog-body { padding: 8px 14px 6px; overflow: visible; }
 /* 让错误提示占据文档流并自动换行，避免被裁剪 */
@@ -507,11 +686,10 @@ loadData()
   white-space: normal;
 }
 /* 给内容区域底部预留空间，避免错误提示与下一行挤在一起 */
-.dialog-form :deep(.el-form-item__content) {
-  padding-bottom: 4px;
-}
+.dialog-form :deep(.el-form-item__content) { padding-bottom: 4px; }
 @media (max-width: 1023px) {
   .dialog-form .row-3 { grid-template-columns: 1fr; }
   .dialog-form .col-2, .dialog-form .col-3, .dialog-form .col-1 { grid-column: span 1; }
+  .layout-2-1 { grid-template-columns: 1fr; }
 }
 </style>

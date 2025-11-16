@@ -1,5 +1,6 @@
 // 路由配置（手机端）：包含首页与我的页
 import { createRouter, createWebHistory } from 'vue-router'
+import { useUserStore } from '@/store/user.js'
 
 const Home = () => import('@/views/Home.vue')
 const Recommend = () => import('@/views/Recommend.vue')
@@ -34,6 +35,53 @@ const router = createRouter({
   scrollBehavior() {
     return { top: 0 }
   }
+})
+
+
+// 角色判定：尽量兼容多种后端返回结构
+function isAdminUser(user) {
+  if (!user) return false
+  // 1) 显式布尔或数值
+  if (user.isAdmin === true) return true
+  if (user.roleCode === 1 || user.type === 'admin') return true
+  // 2) 单值字符串 role
+  if (typeof user.role === 'string' && user.role.toLowerCase().includes('admin')) return true
+  // 3) 角色数组/权限数组
+  const roles = user.roles || user.authorities || user.permissions || []
+  if (Array.isArray(roles) && roles.some(r => String(r).toLowerCase().includes('admin'))) return true
+  // 4) 兜底：用户名即为 admin
+  if (typeof user.username === 'string' && user.username.toLowerCase() === 'admin') return true
+  return false
+}
+
+// 刷新控制标志：仅在刷新后的首个导航执行一次“就近修正”
+let sessionLoaded = false
+let adjustedOnceAfterRefresh = false
+
+router.beforeEach(async (to, _from, next) => {
+  const userStore = useUserStore()
+  // 1) 刷新后首个导航：通过 HttpOnly Cookie 调用 /check 拉取会话
+  if (!sessionLoaded) {
+    try { await userStore.fetchSession() } catch (_) {}
+    sessionLoaded = true
+  }
+
+  const isAdmin = isAdminUser(userStore.user)
+  const isAdminRoute = to.path.startsWith('/admin')
+
+  // 2) 仅在刷新首跳执行你描述的就近修正规则
+  if (!adjustedOnceAfterRefresh) {
+    adjustedOnceAfterRefresh = true
+    if (isAdmin) {
+      // 管理员：如果当前不在 /admin 下，跳到管理员首页；在 /admin 下则保持不变
+      if (!isAdminRoute) return next({ path: '/admin' })
+    } else {
+      // 普通用户：如果当前在 /admin 下，跳到用户首页；否则保持不变
+      if (isAdminRoute) return next({ name: 'home' })
+    }
+  }
+
+  return next()
 })
 
 router.afterEach((to) => {
