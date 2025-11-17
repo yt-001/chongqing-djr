@@ -22,7 +22,7 @@
       </div>
     </el-card>
 
-    <!-- 底部：表格 + 分页（铺满父容器，“操作列”固定在最右） -->
+    <!-- 底部：表格 + 分页（铺满父容器，"操作列"固定在最右） -->
     <el-card class="block" shadow="never">
       <div class="table-wrap">
         <el-table
@@ -171,6 +171,8 @@ import { ref, reactive, computed, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { View, Close } from '@element-plus/icons-vue'
 import { fetchAdminAttractionsPage, fetchAdminAttractionById, createAdminAttraction, updateAdminAttraction, deleteAdminAttraction } from '@/api'
+import { uploadMultipleImages } from '@/api/modules/upload'
+import { processImageData, formatImageDataForSubmit } from '@/utils/imageUtils'
 
 // 统一搜索条件（与接口请求体一致）
 const query = reactive({ keyword: '', createTime: '', updateTime: '', name: '', location: '' })
@@ -441,41 +443,69 @@ function onDialogClosed() {
 
 // 从表单数据加载图片到显示状态
 function loadImageData() {
-  const coverImage = form.coverImage || ''
-  let imageUrls = []
+  // 使用工具类处理图片数据
+  const processedData = processImageData({
+    coverImage: form.coverImage,
+    images: form.images
+  })
   
-  try {
-    // 尝试解析JSON数组
-    const parsed = JSON.parse(form.images || '[]')
-    imageUrls = Array.isArray(parsed) ? parsed.filter(Boolean) : []
-  } catch {
-    // 如果不是JSON，尝试逗号分隔
-    if (form.images) {
-      imageUrls = form.images.split(',').map(s => s.trim()).filter(Boolean)
-    }
-  }
-  
+  // 设置到当前图片数据
   currentImageData.value = {
     files: [],
-    coverUrl: coverImage,
-    imageUrls: coverImage ? [coverImage, ...imageUrls] : imageUrls
+    coverUrl: processedData.coverUrl,
+    imageUrls: processedData.coverUrl ? [processedData.coverUrl, ...processedData.imageUrls] : processedData.imageUrls
   }
+  
+
 }
 
-function onSubmitEdit() {
+async function onSubmitEdit() {
   // 先校验表单
-  formRef.value?.validate(async (valid) => {
-    if (!valid) return
-    try {
-      const payload = { ...form } // 包含 id 与可编辑字段
-      await updateAdminAttraction(payload)
-      ElMessage.success('修改成功')
-      dialog.visible = false
-      loadData()
-    } catch (e) {
-      ElMessage.error(e.message || '修改失败')
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) return
+  
+  try {
+    // 如果有新选择的文件，先上传图片
+    if (currentImageData.value.files.length > 0) {
+      ElMessage.info('正在上传图片...')
+      
+      // 提取实际的文件对象
+      const filesToUpload = currentImageData.value.files.map(item => item.file)
+      const uploadedUrls = await uploadMultipleImages(filesToUpload)
+      
+      if (!uploadedUrls || uploadedUrls.length === 0) {
+        ElMessage.error('图片上传失败，请重试')
+        return
+      }
+      
+      // 使用工具类格式化图片数据
+      const formattedData = formatImageDataForSubmit(uploadedUrls)
+      form.coverImage = formattedData.coverImage
+      form.images = formattedData.images
+      
+      // 更新预览显示
+      const processedData = processImageData({
+        coverImage: form.coverImage,
+        images: form.images
+      })
+      
+      currentImageData.value = {
+        files: [],
+        coverUrl: processedData.coverUrl,
+        imageUrls: processedData.coverUrl ? [processedData.coverUrl, ...processedData.imageUrls] : processedData.imageUrls
+      }
+      
+
     }
-  })
+    
+    const payload = { ...form } // 包含 id 与可编辑字段
+    await updateAdminAttraction(payload)
+    ElMessage.success('修改成功')
+    dialog.visible = false
+    loadData()
+  } catch (e) {
+    ElMessage.error(e.message || '修改失败')
+  }
 }
 
 async function onDelete(row) {
@@ -545,32 +575,66 @@ function buildDiffPayload() {
   return changed ? diff : null
 }
 
-function onSubmitCreate() {
+async function onSubmitCreate() {
   // 先校验表单
-  formRef.value?.validate(async (valid) => {
-    if (!valid) return
-    try {
-      // 构造新增载荷：不包含 id/createTime/updateTime
-      const payload = {
-        name: form.name,
-        description: form.description,
-        location: form.location,
-        latitude: form.latitude,
-        longitude: form.longitude,
-        coverImage: form.coverImage,
-        images: form.images,
-        openHours: form.openHours,
-        ticketPrice: form.ticketPrice,
-        contactPhone: form.contactPhone,
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) return
+  
+  try {
+    // 如果有新选择的文件，先上传图片
+    if (currentImageData.value.files.length > 0) {
+      ElMessage.info('正在上传图片...')
+      
+      // 提取实际的文件对象
+      const filesToUpload = currentImageData.value.files.map(item => item.file)
+      const uploadedUrls = await uploadMultipleImages(filesToUpload)
+      
+      if (!uploadedUrls || uploadedUrls.length === 0) {
+        ElMessage.error('图片上传失败，请重试')
+        return
       }
-      await createAdminAttraction(payload)
-      ElMessage.success('新增成功')
-      dialog.visible = false
-      loadData()
-    } catch (e) {
-      ElMessage.error(e.message || '新增失败')
+      
+      // 使用工具类格式化图片数据
+      const formattedData = formatImageDataForSubmit(uploadedUrls)
+      form.coverImage = formattedData.coverImage
+      form.images = formattedData.images
+      
+      // 更新预览显示
+      const processedData = processImageData({
+        coverImage: form.coverImage,
+        images: form.images
+      })
+      
+      currentImageData.value = {
+        files: [],
+        coverUrl: processedData.coverUrl,
+        imageUrls: processedData.coverUrl ? [processedData.coverUrl, ...processedData.imageUrls] : processedData.imageUrls
+      }
+      
+
     }
-  })
+    
+    // 构造新增载荷：不包含 id/createTime/updateTime
+    const payload = {
+      name: form.name,
+      description: form.description,
+      location: form.location,
+      latitude: form.latitude,
+      longitude: form.longitude,
+      coverImage: form.coverImage,
+      images: form.images,
+      openHours: form.openHours,
+      ticketPrice: form.ticketPrice,
+      contactPhone: form.contactPhone,
+    }
+    
+    await createAdminAttraction(payload)
+    ElMessage.success('新增成功')
+    dialog.visible = false
+    loadData()
+  } catch (e) {
+    ElMessage.error(e.message || '新增失败')
+  }
 }
 
 function onFileInputChange(event) {

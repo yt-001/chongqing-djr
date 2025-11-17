@@ -158,6 +158,8 @@ import { ref, reactive, computed, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { View, Close } from '@element-plus/icons-vue'
 import { fetchAdminRestaurantsPage, fetchAdminRestaurantById, createAdminRestaurant, updateAdminRestaurant, deleteAdminRestaurant } from '@/api'
+import { uploadMultipleImages } from '@/api/modules/upload'
+import { processImageData, formatImageDataForSubmit } from '@/utils/imageUtils'
 
 // 搜索条件
 const query = reactive({ keyword: '', createTime: '', updateTime: '', name: '', location: '' })
@@ -406,24 +408,17 @@ function onDialogClosed() {
 
 // 从表单数据加载图片到显示状态
 function loadImageData() {
-  const coverImage = form.coverImage || ''
-  let imageUrls = []
+  // 使用工具类处理图片数据
+  const processedData = processImageData({
+    coverImage: form.coverImage,
+    images: form.images
+  })
   
-  try {
-    // 尝试解析JSON数组
-    const parsed = JSON.parse(form.images || '[]')
-    imageUrls = Array.isArray(parsed) ? parsed.filter(Boolean) : []
-  } catch {
-    // 如果不是JSON，尝试逗号分隔
-    if (form.images) {
-      imageUrls = form.images.split(',').map(s => s.trim()).filter(Boolean)
-    }
-  }
-  
+  // 设置到当前图片数据
   currentImageData.value = {
     files: [],
-    coverUrl: coverImage,
-    imageUrls: coverImage ? [coverImage, ...imageUrls] : imageUrls
+    coverUrl: processedData.coverUrl,
+    imageUrls: processedData.coverUrl ? [processedData.coverUrl, ...processedData.imageUrls] : processedData.imageUrls
   }
 }
 
@@ -558,10 +553,10 @@ function onFileInputChange(event) {
     imageUrls: urls.map(item => item.blobUrl)
   }
   
-  // 同步到表单（用于提交）
+  // 同步到表单（用于提交）- 上传文件
   if (urls.length > 0) {
-    form.coverImage = urls[0].blobUrl
-    form.images = JSON.stringify(urls.slice(1).map(item => item.blobUrl))
+    // 上传图片到服务器
+    uploadFiles(urls.map(item => item.file))
   } else {
     form.coverImage = ''
     form.images = JSON.stringify([])
@@ -569,6 +564,33 @@ function onFileInputChange(event) {
   
   // 清空input的值，确保下次选择同一文件时能触发change事件
   event.target.value = ''
+}
+
+// 上传图片到服务器
+async function uploadFiles(files) {
+  try {
+    const uploadedUrls = await uploadMultipleImages(files)
+    
+    // 使用工具类格式化图片数据
+    const formattedData = formatImageDataForSubmit(uploadedUrls)
+    form.coverImage = formattedData.coverImage
+    form.images = formattedData.images
+    
+    // 更新预览显示
+    const processedData = processImageData({
+      coverImage: form.coverImage,
+      images: form.images
+    })
+    
+    currentImageData.value = {
+      files: [],
+      coverUrl: processedData.coverUrl,
+      imageUrls: processedData.coverUrl ? [processedData.coverUrl, ...processedData.imageUrls] : processedData.imageUrls
+    }
+  } catch (error) {
+    console.error('图片上传失败:', error)
+    ElMessage.error('图片上传失败')
+  }
 }
 
 function clearImages() {
