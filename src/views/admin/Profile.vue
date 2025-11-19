@@ -14,7 +14,7 @@
       <div class="profile-content">
         <!-- 左侧头像区域 -->
         <div class="avatar-section">
-          <el-avatar :size="120" :src="current.avatarUrl || defaultAvatar" />
+          <el-avatar :size="120" :src="currentDisplayAvatar || defaultAvatar" />
         </div>
 
         <!-- 中间信息区域：一行两列紧凑排列 -->
@@ -134,11 +134,18 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { uploadSingleImage } from '@/api/modules/upload'
-import { IMAGE_CONFIG } from '@/config/constants'
+import { updateUser } from '@/api/modules/user'
+ 
 
 const router = useRouter()
 const userStore = useUserStore()
 const defaultAvatar = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
+
+function toImagesPreview(p) {
+  if (!p || typeof p !== 'string') return ''
+  const fileName = String(p).replace(/^\/images\//, '')
+  return `/images/${fileName}`
+}
 
 // 当前用户信息
 const current = computed(() => userStore.user || { 
@@ -147,6 +154,8 @@ const current = computed(() => userStore.user || {
   status: 1, 
   role: 1 
 })
+
+const currentDisplayAvatar = computed(() => toImagesPreview((userStore.user && userStore.user.avatarUrl) || ''))
 
 // 编辑弹窗相关
 const editDialog = reactive({
@@ -169,6 +178,7 @@ function showEditDialog() {
   editForm.username = current.value.username || ''
   editForm.email = current.value.email || ''
   editForm.phone = current.value.phone || ''
+  editForm.avatarUrl = toImagesPreview((userStore.user && userStore.user.avatarUrl) || '')
   editDialog.visible = true
 }
 
@@ -206,7 +216,14 @@ function onAvatarChange(event) {
  */
 async function saveUserInfoWithUpload() {
   try {
-    let avatarUrl = editForm.avatarUrl
+    /**
+     * 头像上传返回路径的规范化为可显示 URL
+     * @param {string} p
+     */
+    
+
+    // 仅当选择了新文件时才进行上传与替换
+    let avatarUrl = null
     
     // 如果有新选择的头像文件，先上传
     if (avatarFile.value) {
@@ -226,7 +243,7 @@ async function saveUserInfoWithUpload() {
       username: editForm.username,
       email: editForm.email,
       phone: editForm.phone,
-      avatarUrl: avatarUrl ? IMAGE_CONFIG.getFullUrl(avatarUrl) : current.value.avatarUrl
+      avatarUrl: avatarUrl ? avatarUrl : current.value.avatarUrl
     }
     
     // 包装数据给后端（模拟API调用）
@@ -235,16 +252,20 @@ async function saveUserInfoWithUpload() {
       username: updatedUser.username,
       email: updatedUser.email,
       phone: updatedUser.phone,
-      avatarUrl: avatarUrl
+      avatarUrl: avatarUrl || null
     }
     
-    console.log('发送给后端的数据:', userData)
-    // 实际应该调用：await updateUserProfile(userData)
+    // 调用后端 /users 更新接口
+    await updateUser(userData)
     
     userStore.setSession({ 
       token: userStore.token, 
       user: updatedUser 
     })
+    // 若上传成功，更新弹窗内预览为可显示的完整 URL
+    if (avatarUrl) {
+      editForm.avatarUrl = toImagesPreview(avatarUrl)
+    }
     
     ElMessage.success('个人信息修改成功')
     editDialog.visible = false

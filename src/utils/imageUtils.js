@@ -5,13 +5,6 @@
 /**
  * 处理后端返回的图片数据，转换为前端可用的格式
  * @param {Object} imageData - 后端返回的图片数据
- * @param {string} imageData.coverImage - 封面图片文件名
- * @param {string} imageData.images - 图片数组JSON字符串
- * @returns {Object} 处理后的图片数据
- */
-/**
- * 处理后端返回的图片数据，转换为前端可用的格式
- * @param {Object} imageData - 后端返回的图片数据
  * @param {string} imageData.coverImage - 封面图片文件名或路径
  * @param {string} imageData.images - 图片数组JSON字符串
  * @returns {{coverUrl:string,imageUrls:string[]}} 处理后的图片数据
@@ -48,11 +41,6 @@ export function processImageData(imageData) {
   return result
 }
 
-/**
- * 格式化图片数据用于提交给后端
- * @param {Array} uploadedUrls - 上传后返回的URL数组
- * @returns {Object} 格式化后的数据
- */
 /**
  * 格式化图片数据用于提交给后端
  * @param {Array} uploadedUrls - 上传后返回的URL数组

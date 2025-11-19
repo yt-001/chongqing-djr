@@ -28,7 +28,7 @@
         <div class="right-user">
           <el-dropdown>
             <span class="user-trigger">
-              <el-avatar :size="28" icon="UserFilled" />
+              <el-avatar :size="28" :src="headerAvatar || defaultAvatar" />
               <span class="user-name">{{ userName }}</span>
             </span>
             <template #dropdown>
@@ -52,7 +52,7 @@
 
 <script setup>
 // 使用 Element Plus 实现基础管理端布局与交互（桌面端）
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 // 图标按需：已在 main.js 全局注册 @element-plus/icons-vue，这里可直接使用组件标签
@@ -71,8 +71,6 @@ const activeMenu = ref(route.name)
 const breadcrumb = ref(['首页', '管理后台', route.name || 'dashboard'])
 // 顶部搜索框
 const searchText = ref('')
-// 用户名（示例：后续可从登录态/接口获取）
-const userName = ref('管理员')
 
 // 选择菜单：使用路由驱动右侧内容
 const onSelectMenu = (index) => {
@@ -93,6 +91,22 @@ const onSearch = () => {
 // 用户菜单：个人中心 / 退出登录
 import { useUserStore } from '@/store/user'
 const userStore = useUserStore()
+const defaultAvatar = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
+
+/**
+ * 将后端返回的头像字段转换为前端可显示的 /images 预览路径
+ * @param {string} p
+ * @returns {string}
+ */
+function toImagesPreview(p) {
+  if (!p || typeof p !== 'string') return ''
+  const fileName = String(p).replace(/^\/images\//, '')
+  return `/images/${fileName}`
+}
+
+// 头部显示的头像与用户名（从 Store 映射）
+const headerAvatar = computed(() => toImagesPreview((userStore.user && userStore.user.avatarUrl) || ''))
+const userName = computed(() => (userStore.user && userStore.user.username) || '管理员')
 const onProfile = () => {
   // 跳转到管理端子路由 /admin/profile，在右侧视图区域展示个人中心页面
   router.push({ name: 'admin-profile' })
