@@ -2,10 +2,11 @@
 // 我的页面：根据登录状态动态展示内容
 // 未登录：头像/昵称区域显示“点击登录”，点击跳转登录页
 // 已登录：展示头像、昵称、快捷入口和“退出登录”
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { showToast } from 'vant'
+import { updateUser, uploadSingleImage } from '@/api'
 
 const router = useRouter()
 const store = useUserStore()
@@ -51,6 +52,131 @@ const handleLogout = async () => {
   }
 }
 
+/**
+ * 打开资料编辑弹窗并初始化表单
+ */
+const editVisible = ref(false)
+const editLoading = ref(false)
+const popupMode = ref('view')
+const editForm = ref({ username: '', email: '', phone: '', backgroundUrl: '' })
+const originalUser = ref(null)
+const avatarPreview = ref('')
+const avatarUploaded = ref(false)
+const pendingAvatarFile = ref(null)
+const avatarFileRef = ref(null)
+function openEdit() {
+  popupMode.value = 'edit'
+  const u = user.value || {}
+  editForm.value = {
+    username: u.username || '',
+    email: u.email || '',
+    phone: u.phone || '',
+    backgroundUrl: u.backgroundUrl || u.background || u.bgUrl || u.coverUrl || u.bannerUrl || ''
+  }
+  originalUser.value = { ...u }
+  avatarPreview.value = ''
+  avatarUploaded.value = false
+  pendingAvatarFile.value = null
+  editVisible.value = true
+}
+
+/**
+ * 打开资料查看弹窗（仅返回按钮，无任何可编辑项）
+ */
+function openView() {
+  const u = user.value || {}
+  editForm.value = {
+    username: u.username || '',
+    email: u.email || '',
+    phone: u.phone || '',
+    backgroundUrl: u.backgroundUrl || u.background || u.bgUrl || u.coverUrl || u.bannerUrl || ''
+  }
+  popupMode.value = 'view'
+  originalUser.value = { ...u }
+  avatarPreview.value = ''
+  avatarUploaded.value = false
+  pendingAvatarFile.value = null
+  editVisible.value = true
+}
+
+/**
+ * 提交资料修改并更新本地用户信息
+ */
+async function submitEdit() {
+  if (!store.user || !store.user.id) {
+    return showToast({ message: '请先登录', position: 'top' })
+  }
+  try {
+    editLoading.value = true
+    // 先上传头像（如选择了新头像）
+    let avatarUrl = originalUser.value?.avatarUrl || ''
+    if (pendingAvatarFile.value) {
+      const urls = await uploadSingleImage(pendingAvatarFile.value)
+      avatarUrl = Array.isArray(urls) ? (urls[0] || avatarUrl) : avatarUrl
+    }
+
+    // 仅提交修改过的字段
+    const editable = ['username', 'email', 'phone']
+    const diff = { id: store.user.id }
+    let changed = false
+    for (const k of editable) {
+      if ((editForm.value[k] || '') !== (originalUser.value?.[k] || '')) {
+        diff[k] = editForm.value[k]
+        changed = true
+      }
+    }
+    if (avatarUrl && avatarUrl !== (originalUser.value?.avatarUrl || '')) {
+      diff.avatarUrl = avatarUrl
+      changed = true
+    }
+    if (!changed) {
+      showToast({ message: '无修改内容', position: 'top' })
+    } else {
+      await updateUser(diff)
+      store.user = { ...store.user, ...diff }
+      showToast({ message: '资料已更新', position: 'top' })
+    }
+    editVisible.value = false
+  } catch (e) {
+    showToast({ message: e.message || '更新失败', position: 'top' })
+  } finally {
+    editLoading.value = false
+  }
+}
+
+/**
+ * 触发选择头像文件
+ */
+function triggerAvatarUpload() {
+  avatarFileRef.value?.click()
+}
+
+/**
+ * 选择头像后上传，返回的URL用于预览与保存
+ * @param {Event} e
+ */
+function onAvatarFileChange(e) {
+  const file = (e.target.files && e.target.files[0]) || null
+  if (!file) return
+  // 本地预览（隐藏遮掩层）
+  const url = URL.createObjectURL(file)
+  avatarPreview.value = url
+  avatarUploaded.value = true
+  pendingAvatarFile.value = file
+}
+
+/**
+ * 头像显示路径拼接（/public/images + 文件名或相对路径）
+ * @param {string} nameOrPath
+ * @returns {string}
+ */
+function resolveAvatarUrl(nameOrPath) {
+  if (!nameOrPath) return ''
+  const s = String(nameOrPath)
+  if (/^https?:\/\//.test(s) || s.startsWith('/')) return s
+  return `/public/images/${s}`
+}
+
 // 占位：各功能入口点击
 const onFeatureClick = (name) => {
   showToast({ message: `${name} 开发中`, position: 'top' })
@@ -63,10 +189,9 @@ const onFeatureClick = (name) => {
     <div class="profile-card" :class="{ clickable: !isLoggedIn }" :style="profileStyle" @click="!isLoggedIn && goLogin()">
       <div class="profile-inner">
         <van-image
+          class="profile-avatar"
           round
-          width="68"
-          height="68"
-          :src="user.avatarUrl || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'"
+          :src="(resolveAvatarUrl(user.avatarUrl) || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg')"
           fit="cover"
         />
         <div class="nickname">{{ isLoggedIn ? (user.username || '用户') : '点击登录' }}</div>
@@ -91,15 +216,57 @@ const onFeatureClick = (name) => {
         <van-grid-item icon="award-o" text="平台资质" @click="onFeatureClick('平台资质')" />
         <van-grid-item icon="friends-o" text="我要合作" @click="onFeatureClick('我要合作')" />
         <van-grid-item icon="chat-o" text="消息通知" @click="onFeatureClick('消息通知')" />
-        <van-grid-item icon="manager-o" text="个人信息" @click="router.push({ name: 'admin-profile' })" />
+        <van-grid-item icon="manager-o" text="个人信息" @click="openView" />
         <van-grid-item icon="notes-o" text="规则中心" @click="onFeatureClick('规则中心')" />
       </van-grid>
     </van-cell-group>
 
-    <!-- 退出登录，仅在已登录显示 -->
+    <!-- 修改资料 / 退出登录 -->
     <van-cell-group inset v-if="isLoggedIn" class="block">
+      <van-cell title="修改资料" is-link @click="openEdit" />
       <van-cell title="退出登录" is-link @click="handleLogout" />
     </van-cell-group>
+
+    <!-- 编辑/查看弹窗 -->
+    <van-popup v-model:show="editVisible" round :style="{ width: '90%' }">
+      <van-nav-bar :title="popupMode === 'edit' ? '修改资料' : '个人信息'" left-text="返回" left-arrow @click-left="editVisible=false" />
+      <div class="popup-body">
+        <div class="popup-avatar">
+          <div class="avatar-wrapper" @click="popupMode==='edit' && triggerAvatarUpload()">
+            <van-image
+              class="avatar-img"
+              round
+              :src="(avatarPreview || resolveAvatarUrl(user.avatarUrl) || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg')"
+              fit="cover"
+            />
+            <div v-if="popupMode==='edit' && !avatarUploaded" class="avatar-overlay">
+              <van-icon name="photograph" size="28" color="#fff" />
+            </div>
+          </div>
+          <input ref="avatarFileRef" type="file" accept="image/*" style="display:none" @change="onAvatarFileChange" />
+        </div>
+
+        <template v-if="popupMode === 'view'">
+          <van-cell-group inset>
+            <van-cell title="用户名" :value="editForm.username || '未设置'" />
+            <van-cell title="邮箱" :value="editForm.email || '未设置'" />
+            <van-cell title="手机号" :value="editForm.phone || '未设置'" />
+          </van-cell-group>
+        </template>
+
+        <template v-else>
+          <van-cell-group>
+            <van-field v-model="editForm.username" label="用户名" placeholder="请输入用户名" />
+            <van-field v-model="editForm.email" label="邮箱" placeholder="请输入邮箱" />
+            <van-field v-model="editForm.phone" label="手机号" placeholder="请输入手机号" />
+          </van-cell-group>
+          <div class="edit-actions">
+            <van-button round type="primary" :loading="editLoading" @click="submitEdit">保存</van-button>
+            <van-button round plain style="margin-left:8px" @click="editVisible=false">取消</van-button>
+          </div>
+        </template>
+      </div>
+    </van-popup>
   </div>
 </template>
 
@@ -155,4 +322,15 @@ const onFeatureClick = (name) => {
 
 /* Grid 文案适配 */
 :deep(.van-grid-item__text) { font-size: 12px; }
+.edit-title { font-weight: 700; font-size: 16px; margin-bottom: 10px; }
+.edit-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+.popup-body { padding: 12px 16px 16px; }
+.popup-avatar { display: flex; justify-content: center; margin: 8px 0 12px; }
+.avatar-wrapper { position: relative; --avatar-size: 88px; width: var(--avatar-size); height: var(--avatar-size); border-radius: 50%; overflow: hidden; box-sizing: border-box; }
+/* 使用居中+等尺寸，避免不同设备的亚像素偏移 */
+.avatar-overlay { position: absolute; width: 100%; height: 100%; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); border-radius: 50%; pointer-events: none; }
+.avatar-wrapper :deep(.van-image) { width: 100%; height: 100%; }
+.avatar-wrapper :deep(.van-image__img) { width: 100%; height: 100%; object-fit: cover; display: block; }
+.avatar-img { width: var(--avatar-size); height: var(--avatar-size); }
+.profile-avatar { width: 68px; height: 68px; display: block; }
 </style>

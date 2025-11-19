@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
+import { processImageData } from '@/utils/imageUtils.js'
 import { fetchRestaurantsPage } from '../api/modules/restaurants.js'
 
 const router = useRouter()
@@ -39,6 +40,15 @@ const onCategoryClick = (name) => {
 
 const onCardClick = (id) => {
   router.push(`/food/${id}`)
+}
+
+/**
+ * 解析封面文件名为可访问URL（/images 前缀）
+ * @param {string} cover
+ * @returns {string}
+ */
+function resolveImageUrl(cover) {
+  return processImageData({ coverImage: cover, images: '[]' }).coverUrl || ''
 }
 
 // 加载数据
@@ -136,7 +146,7 @@ onUnmounted(() => {
     <!-- 美食列表 -->
     <div class="food-list" v-else>
       <div class="food-card" v-for="food in foodList" :key="food.id" @click="onCardClick(food.id)">
-        <van-image class="food-image" :src="food.coverImage" width="100%" height="180" fit="cover" />
+        <van-image class="food-image" :src="resolveImageUrl(food.coverImage)" width="100%" height="180" fit="cover" />
         <div class="food-info">
           <div class="title">{{ food.name }}</div>
           <div class="rating-author">

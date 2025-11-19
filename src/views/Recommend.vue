@@ -2,7 +2,9 @@
 // 推荐页面（去除分页与加载逻辑）
 // 仅保留：顶部彩色分类网格、第二排分类、主题横幅、卡片列表结构
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
+import { processImageData } from '@/utils/imageUtils.js'
 import { fetchAttractionsPage } from '../api/modules/attractions.js'
 
 // 分类点击事件（示例）
@@ -38,12 +40,31 @@ const loading = ref(true) // 初始加载
 const loadingMore = ref(false) // 滚动加载
 const hasMore = ref(true) // 是否还有更多数据
 
+// 路由实例
+const router = useRouter()
+
 // 卡片列表数据
 const feed = ref([])
 const pageNum = ref(1)
 
+/**
+ * 打开景点详情页
+ * @param {string|number} id 景点ID
+ */
 const onOpenItem = (id) => {
-  showToast({ message: `推荐内容 ${id} 开发中`, position: 'top' })
+  if (!id) {
+    return showToast({ message: '无效的景点ID', position: 'top' })
+  }
+  router.push({ name: 'scenic-detail', params: { id } })
+}
+
+/**
+ * 解析封面文件名为可访问URL（/images 前缀）
+ * @param {string} cover
+ * @returns {string}
+ */
+function resolveImageUrl(cover) {
+  return processImageData({ coverImage: cover, images: '[]' }).coverUrl || ''
 }
 
 // 加载更多数据
@@ -195,7 +216,7 @@ onUnmounted(() => {
       <!-- 数据卡片 -->
       <template v-else>
         <div class="feed-item" v-for="item in feed" :key="item.id" @click="onOpenItem(item.id)">
-          <van-image :src="item.coverImage" width="100%" height="120" fit="cover" />
+          <van-image :src="resolveImageUrl(item.coverImage)" width="100%" height="120" fit="cover" />
           <div class="feed-info">
             <div class="title">{{ item.name }}</div>
             <div class="desc">{{ item.description }}</div>
@@ -239,11 +260,11 @@ onUnmounted(() => {
 
 /* 卡片列表（两列流式） */
 .feed-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px; }
-.feed-item { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 14px rgba(0,0,0,0.06); }
-.feed-info { padding: 8px 10px; }
+.feed-item { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 14px rgba(0,0,0,0.06); height: 260px; display: flex; flex-direction: column; }
+.feed-info { padding: 8px 10px; display: flex; flex: 1; flex-direction: column; }
 .feed-info .title { font-size: 14px; font-weight: 700; line-height: 1.5; }
-.feed-info .desc { font-size: 12px; color: #666; margin-top: 4px; }
-.feed-info .meta { display: flex; justify-content: space-between; color: #888; font-size: 12px; margin-top: 6px; }
+.feed-info .desc { font-size: 12px; color: #666; margin-top: 4px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; }
+.feed-info .meta { display: flex; justify-content: space-between; color: #888; font-size: 12px; margin-top: auto; }
 .feed-info .price { color: #12b981; font-weight: 600; }
 
 /* 加载更多 */

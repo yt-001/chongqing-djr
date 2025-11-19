@@ -1,37 +1,56 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { fetchRestaurantById } from '../api/index.js'
+import { processImageData } from '@/utils/imageUtils.js'
 
 const route = useRoute()
+const router = useRouter()
 const restaurant = ref(null)
 const loading = ref(true)
 
-// API返回的图片是JSON字符串，这里进行解析
-const galleryImages = computed(() => {
-  if (restaurant.value?.images) {
-    try {
-      const parsed = JSON.parse(restaurant.value.images)
-      return Array.isArray(parsed) ? parsed : []
-    } catch (e) {
-      return []
-    }
-  }
-  return []
+/**
+ * 解析封面与图集（统一 /images 前缀）
+ * @returns {{coverUrl:string,imageUrls:string[]}}
+ */
+const imageView = computed(() => {
+  return processImageData({
+    coverImage: restaurant.value?.coverImage || '',
+    images: restaurant.value?.images || '[]'
+  })
 })
 
-// 商家相册（复用galleryImages）
-const dishes = computed(() => {
-  return galleryImages.value.map((img, index) => ({
-    id: index,
-    title: `菜品 ${index + 1}`,
-    img: img
-  }))
+/**
+ * 特色菜品（后端提供菜品名称、价格、图片）
+ * 兼容多种返回结构：字符串JSON或对象数组，字段名的差异
+ * @returns {{id:number,name:string,price:string|number,img:string}[]}
+ */
+const specialDishes = computed(() => {
+  const raw = restaurant.value?.dishes || restaurant.value?.specialDishes || restaurant.value?.signatureDishes || []
+  let arr
+  try {
+    arr = Array.isArray(raw) ? raw : JSON.parse(raw)
+  } catch (_) {
+    arr = []
+  }
+  if (!Array.isArray(arr)) return []
+  return arr
+    .filter(Boolean)
+    .map((item, idx) => {
+      const name = item.name || item.title || `菜品 ${idx + 1}`
+      const price = item.price ?? item.cost ?? item.priceYuan ?? ''
+      const cover = item.image || item.img || item.coverImage || ''
+      const url = processImageData({ coverImage: cover, images: '[]' }).coverUrl || ''
+      return { id: idx, name, price, img: url }
+    })
 })
 
 const currentSlide = ref(0)
 
+/**
+ * 加载美食详情（按路由参数 id）
+ */
 onMounted(async () => {
   const id = route.params.id
   if (!id) {
@@ -43,6 +62,10 @@ onMounted(async () => {
     loading.value = true
     const data = await fetchRestaurantById(id)
     restaurant.value = data
+    // 若后端暂未提供特色菜品，注入示例数据用于预览效果
+    if (!restaurant.value?.dishes && !restaurant.value?.specialDishes && !restaurant.value?.signatureDishes) {
+      restaurant.value.dishes = JSON.stringify(buildDemoDishes())
+    }
   } catch (e) {
     showToast('获取美食详情失败')
   } finally {
@@ -50,12 +73,32 @@ onMounted(async () => {
   }
 })
 
-// 保留原有的占位函数
+/**
+ * 快捷操作占位
+ * @param {string} name
+ */
 const onQuickAction = (name) => {
   showToast({ message: `${name} 开发中`, position: 'top' })
 }
+/**
+ * 查看菜品详情占位
+ * @param {number} id
+ */
 const onViewDetail = (id) => {
   showToast({ message: `菜品 ${id} 详情开发中`, position: 'top' })
+}
+
+/**
+ * 构建特色菜品示例数据（文件名来自 public/images/）
+ * @returns {{name:string,price:number,image:string}[]}
+ */
+function buildDemoDishes() {
+  return [
+    { name: '招牌鲜牛肉', price: 58, image: 'e3f52c00-0122-438b-8fa1-59d03ea1a848.png' },
+    { name: '番茄土豆片', price: 26, image: 'cf566d3f-f756-4f3f-bf83-401aff4af440.png' },
+    { name: '手打虾滑', price: 38, image: '99690364-15d9-4d57-9230-45b1773a0710.png' },
+    { name: '麻辣鹅肠', price: 32, image: 'de7b1565-a06f-434c-92b3-f4a6da39a14f.png' }
+  ]
 }
 </script>
 
@@ -65,6 +108,9 @@ const onViewDetail = (id) => {
     <van-skeleton title :row="5" style="margin-top: 20px" />
   </div>
   <div v-else-if="restaurant" class="food-page">
+    <!-- 返回导航条 -->
+    <van-nav-bar left-text="返回" left-arrow @click-left="router.back()" />
+
     <!-- 顶部横幅 -->
     <div class="banner">
       <div class="brand">
@@ -84,7 +130,7 @@ const onViewDetail = (id) => {
     <!-- 商家信息卡片 -->
     <div class="merchant-card">
       <div class="left">
-        <van-image :src="restaurant.coverImage" width="64" height="64" round fit="cover" />
+        <van-image :src="imageView.coverUrl" width="64" height="64" round fit="cover" />
       </div>
       <div class="mid">
         <div class="row">
@@ -108,31 +154,32 @@ const onViewDetail = (id) => {
     <!-- 商家相册 -->
     <div class="section-head">
       <div class="title">商家相册</div>
-      <div class="pager">{{ currentSlide + 1 }}/{{ galleryImages.length }}</div>
+      <div class="pager">{{ currentSlide + 1 }}/{{ imageView.imageUrls.length }}</div>
     </div>
 
     <van-swipe class="dish-swipe" :autoplay="4000" :show-indicators="false" @change="(i)=> currentSlide = i">
-      <van-swipe-item v-for="(img, idx) in galleryImages" :key="idx">
+      <van-swipe-item v-for="(img, idx) in imageView.imageUrls" :key="idx">
         <div class="dish-card">
           <van-image :src="img" width="100%" height="100%" fit="cover" />
         </div>
       </van-swipe-item>
     </van-swipe>
 
-    <div class="swipe-caption">
-      <div class="caption-inner">
-        <div class="title"></div>
-        <div class="dots">
-          <span v-for="(d, di) in galleryImages" :key="`dot-`+di" class="dot" :class="{ active: di === currentSlide }"></span>
-        </div>
-      </div>
+    
+    <!-- 特色菜品 -->
+    <div class="section-head">
+      <div class="title">特色菜品</div>
+      <div class="pager">共 {{ specialDishes.length }} 道</div>
     </div>
 
-    <!-- 相册网格 -->
-    <div class="dish-grid" v-if="dishes.length > 0">
-      <div class="grid-item" v-for="dish in dishes" :key="`g-`+dish.id" @click="onViewDetail(dish.id)">
-        <van-image :src="dish.img" width="100%" height="110" fit="cover" />
-        <div class="grid-title">{{ dish.title }}</div>
+    <!-- 特色菜品网格（图+名+价） -->
+    <div class="dish-grid" v-if="specialDishes.length > 0">
+      <div class="grid-item" v-for="dish in specialDishes" :key="`g-`+dish.id" @click="onViewDetail(dish.id)">
+        <van-image :src="dish.img" width="100%" height="120" fit="cover" />
+        <div class="grid-info">
+          <div class="name">{{ dish.name }}</div>
+          <div class="price" v-if="dish.price !== ''">¥ {{ Number(dish.price).toFixed(2) }}</div>
+        </div>
       </div>
     </div>
   </div>
@@ -162,13 +209,9 @@ const onViewDetail = (id) => {
 .section-head .pager { font-size: 12px; color: #888; }
 .dish-swipe { height: 160px; margin: 0 12px; border-radius: 12px 12px 0 0; overflow: hidden; }
 .dish-card { position: relative; height: 100%; }
-.swipe-caption { margin: 0 12px 0; }
-.caption-inner { height: 32px; border-radius: 0 0 12px 12px; background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.10)); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; }
-.caption-inner .title { font-weight: 700; font-size: 14px; color: #333; }
-.caption-inner .dots { display: flex; gap: 6px; }
-.caption-inner .dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(0,0,0,0.2); }
-.caption-inner .dot.active { background: #12b981; }
 .dish-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px; }
 .grid-item { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 14px rgba(0,0,0,0.06); }
-.grid-title { padding: 8px; font-size: 14px; font-weight: 600; }
+.grid-info { display: flex; align-items: center; justify-content: space-between; padding: 8px; }
+.grid-info .name { font-size: 14px; font-weight: 600; color: #333; }
+.grid-info .price { font-size: 13px; color: #12b981; font-weight: 700; }
 </style>
