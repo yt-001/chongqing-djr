@@ -664,15 +664,6 @@ function onFileInputChange(event) {
     imageUrls: urls.map(item => item.blobUrl)
   }
   
-  // 同步到表单（用于提交）
-  if (urls.length > 0) {
-    form.coverImage = urls[0].blobUrl
-    form.images = JSON.stringify(urls.slice(1).map(item => item.blobUrl))
-  } else {
-    form.coverImage = ''
-    form.images = JSON.stringify([])
-  }
-  
   // 清空input的值，确保下次选择同一文件时能触发change事件
   event.target.value = ''
 }

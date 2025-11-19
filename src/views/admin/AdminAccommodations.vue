@@ -463,6 +463,17 @@ function onSubmitEdit() {
   formRef.value?.validate(async (valid) => {
     if (!valid) return
     try {
+      // 先上传图片（如果有新选择的）
+      if (currentImageData.value.files.length > 0) {
+        const files = currentImageData.value.files.map(item => item.file)
+        const uploadedUrls = await uploadMultipleImages(files)
+        
+        // 使用工具类格式化图片数据
+        const formattedData = formatImageDataForSubmit(uploadedUrls)
+        form.coverImage = formattedData.coverImage
+        form.images = formattedData.images
+      }
+      
       const diff = buildDiffPayload()
       if (!diff) { ElMessage.warning('未修改任何内容'); return }
       await updateAdminAccommodation(diff)
@@ -477,6 +488,17 @@ function onSubmitCreate() {
   formRef.value?.validate(async (valid) => {
     if (!valid) return
     try {
+      // 先上传图片（如果有新选择的）
+      if (currentImageData.value.files.length > 0) {
+        const files = currentImageData.value.files.map(item => item.file)
+        const uploadedUrls = await uploadMultipleImages(files)
+        
+        // 使用工具类格式化图片数据
+        const formattedData = formatImageDataForSubmit(uploadedUrls)
+        form.coverImage = formattedData.coverImage
+        form.images = formattedData.images
+      }
+      
       const payload = {
         name: form.name,
         description: form.description,
@@ -556,27 +578,21 @@ function onFileInputChange(event) {
     }
   })
   
-  // 处理新文件
+  // 处理新文件 - 只创建预览，不上传
   const urls = files.map(file => {
     const blobUrl = URL.createObjectURL(file)
     return { file, blobUrl }
   })
   
-  // 更新显示数据
+  // 更新显示数据（仅预览）
   currentImageData.value = {
     files: urls,
     coverUrl: urls[0]?.blobUrl || '',
     imageUrls: urls.map(item => item.blobUrl)
   }
   
-  // 同步到表单（用于提交）- 上传文件
-  if (urls.length > 0) {
-    // 上传图片到服务器
-    uploadFiles(urls.map(item => item.file))
-  } else {
-    form.coverImage = ''
-    form.images = JSON.stringify([])
-  }
+  // 暂时不上传图片，等保存时再处理
+  // form.coverImage 和 form.images 将在保存时设置
   
   // 清空input的值，确保下次选择同一文件时能触发change事件
   event.target.value = ''
@@ -642,6 +658,8 @@ loadData()
 .dialog-body { padding: 8px 14px 6px; overflow: visible; }
 .dialog-form :deep(.el-form-item__error) { position: static; margin-top: 4px; line-height: 1.2; white-space: normal; }
 .dialog-form :deep(.el-form-item__content) { padding-bottom: 4px; }
+/* 保证数字输入组件在网格中占满列宽，避免布局断裂 */
+.dialog-form :deep(.el-input-number) { width: 100%; }
 
 /* 新布局：左表单 + 右图片侧栏（占位与高度自适应） */
 .layout-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; align-items: start; }
@@ -665,6 +683,8 @@ loadData()
 .image-aside .clear-icon { color: white; font-size: 12px; }
 
 /* 预览轮播样式 */
-.preview-body { display: flex; justify-content: center; align-items: center; }
+.preview-body { padding: 4px; }
+/* 让轮播组件占满弹窗宽度，避免内容区域过窄 */
+.preview-body :deep(.el-carousel) { width: 100%; }
 .preview-image { width: 100%; height: 100%; }
 </style>

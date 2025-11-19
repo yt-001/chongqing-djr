@@ -91,7 +91,7 @@ const onFeatureClick = (name) => {
         <van-grid-item icon="award-o" text="平台资质" @click="onFeatureClick('平台资质')" />
         <van-grid-item icon="friends-o" text="我要合作" @click="onFeatureClick('我要合作')" />
         <van-grid-item icon="chat-o" text="消息通知" @click="onFeatureClick('消息通知')" />
-        <van-grid-item icon="manager-o" text="个人信息" @click="onFeatureClick('个人信息')" />
+        <van-grid-item icon="manager-o" text="个人信息" @click="router.push({ name: 'admin-profile' })" />
         <van-grid-item icon="notes-o" text="规则中心" @click="onFeatureClick('规则中心')" />
       </van-grid>
     </van-cell-group>

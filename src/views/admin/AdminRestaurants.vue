@@ -449,6 +449,17 @@ function onSubmitEdit() {
   formRef.value?.validate(async (valid) => {
     if (!valid) return
     try {
+      // 先上传图片（如果有新选择的）
+      if (currentImageData.value.files.length > 0) {
+        const files = currentImageData.value.files.map(item => item.file)
+        const uploadedUrls = await uploadMultipleImages(files)
+        
+        // 使用工具类格式化图片数据
+        const formattedData = formatImageDataForSubmit(uploadedUrls)
+        form.coverImage = formattedData.coverImage
+        form.images = formattedData.images
+      }
+      
       const diff = buildDiffPayload()
       if (!diff) { ElMessage.warning('未修改任何内容'); return }
       await updateAdminRestaurant(diff)
@@ -463,6 +474,17 @@ function onSubmitCreate() {
   formRef.value?.validate(async (valid) => {
     if (!valid) return
     try {
+      // 先上传图片（如果有新选择的）
+      if (currentImageData.value.files.length > 0) {
+        const files = currentImageData.value.files.map(item => item.file)
+        const uploadedUrls = await uploadMultipleImages(files)
+        
+        // 使用工具类格式化图片数据
+        const formattedData = formatImageDataForSubmit(uploadedUrls)
+        form.coverImage = formattedData.coverImage
+        form.images = formattedData.images
+      }
+      
       const payload = {
         name: form.name,
         description: form.description,
@@ -540,58 +562,27 @@ function onFileInputChange(event) {
     }
   })
   
-  // 处理新文件
+  // 处理新文件 - 只创建预览，不上传
   const urls = files.map(file => {
     const blobUrl = URL.createObjectURL(file)
     return { file, blobUrl }
   })
   
-  // 更新显示数据
+  // 更新显示数据（仅预览）
   currentImageData.value = {
     files: urls,
     coverUrl: urls[0]?.blobUrl || '',
     imageUrls: urls.map(item => item.blobUrl)
   }
   
-  // 同步到表单（用于提交）- 上传文件
-  if (urls.length > 0) {
-    // 上传图片到服务器
-    uploadFiles(urls.map(item => item.file))
-  } else {
-    form.coverImage = ''
-    form.images = JSON.stringify([])
-  }
+  // 暂时不上传图片，等保存时再处理
+  // form.coverImage 和 form.images 将在保存时设置
   
   // 清空input的值，确保下次选择同一文件时能触发change事件
   event.target.value = ''
 }
 
-// 上传图片到服务器
-async function uploadFiles(files) {
-  try {
-    const uploadedUrls = await uploadMultipleImages(files)
-    
-    // 使用工具类格式化图片数据
-    const formattedData = formatImageDataForSubmit(uploadedUrls)
-    form.coverImage = formattedData.coverImage
-    form.images = formattedData.images
-    
-    // 更新预览显示
-    const processedData = processImageData({
-      coverImage: form.coverImage,
-      images: form.images
-    })
-    
-    currentImageData.value = {
-      files: [],
-      coverUrl: processedData.coverUrl,
-      imageUrls: processedData.coverUrl ? [processedData.coverUrl, ...processedData.imageUrls] : processedData.imageUrls
-    }
-  } catch (error) {
-    console.error('图片上传失败:', error)
-    ElMessage.error('图片上传失败')
-  }
-}
+
 
 function clearImages() {
   clearImageData()

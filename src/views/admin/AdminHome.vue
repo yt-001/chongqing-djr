@@ -90,9 +90,18 @@ const onSearch = () => {
   ElMessage.success(`已搜索：${searchText.value}`)
 }
 
-// 用户菜单：个人中心 / 退出登录（示例）
-const onProfile = () => ElMessage.info('即将进入个人中心')
-const onLogout = () => ElMessage.success('已退出登录（示例）')
+// 用户菜单：个人中心 / 退出登录
+import { useUserStore } from '@/store/user'
+const userStore = useUserStore()
+const onProfile = () => {
+  // 跳转到管理端子路由 /admin/profile，在右侧视图区域展示个人中心页面
+  router.push({ name: 'admin-profile' })
+}
+const onLogout = async () => {
+  // 调用 Pinia 的退出登录，并跳转到登录页
+  try { await userStore.logout() } catch (_) {}
+  router.push({ name: 'login' })
+}
 </script>
 
 <style scoped>
