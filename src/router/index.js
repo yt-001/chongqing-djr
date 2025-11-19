@@ -7,8 +7,12 @@ const Recommend = () => import('@/views/Recommend.vue')
 const Food = () => import('@/views/Food.vue')
 const FoodDetail = () => import('@/views/FoodDetail.vue')
 const ScenicDetail = () => import('@/views/ScenicDetail.vue')
+const PaymentSuccess = () => import('@/views/PaymentSuccess.vue')
 const Booking = () => import('@/views/Booking.vue')
 const Mine = () => import('@/views/Mine.vue')
+const PendingVouchers = () => import('@/views/PendingVouchers.vue')
+const UnpaidOrders = () => import('@/views/UnpaidOrders.vue')
+const CompletedOrders = () => import('@/views/CompletedOrders.vue')
 
 
 const router = createRouter({
@@ -19,8 +23,12 @@ const router = createRouter({
     { path: '/food', name: 'food', component: Food, meta: { title: '美食' } },
     { path: '/food/:id', name: 'food-detail', component: FoodDetail, meta: { title: '美食详情', hideTabbar: true } },
     { path: '/scenic/:id', name: 'scenic-detail', component: ScenicDetail, meta: { title: '景点详情', hideTabbar: true } },
+    { path: '/pay-success', name: 'pay-success', component: PaymentSuccess, meta: { title: '支付成功', hideTabbar: true } },
     { path: '/booking', name: 'booking', component: Booking, meta: { title: '预定' } },
     { path: '/mine', name: 'mine', component: Mine, meta: { title: '我的' } },
+    { path: '/vouchers/pending', name: 'pending-vouchers', component: PendingVouchers, meta: { title: '待消费卷', hideTabbar: true } },
+    { path: '/orders/incomplete', name: 'incomplete-orders', component: UnpaidOrders, meta: { title: '未完成', hideTabbar: true } },
+    { path: '/orders/completed', name: 'completed-orders', component: CompletedOrders, meta: { title: '已完成', hideTabbar: true } },
 
     { path: '/login', name: 'login', component: () => import('@/views/Login.vue'), meta: { title: '登录', hideTabbar: true } },
     { path: '/register', name: 'register', component: () => import('@/views/Register.vue'), meta: { title: '注册', hideTabbar: true } },
