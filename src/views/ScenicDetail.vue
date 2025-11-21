@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { fetchAdminAttractionById as fetchAttractionById } from '@/api'
+import { useUserStore } from '@/store/user.js'
 import { processImageData } from '@/utils/imageUtils.js'
 
 // 景点详情数据
@@ -200,15 +201,38 @@ function openPaySheet() {
 }
 
 /**
- * 开始模拟支付流程（2秒后跳转支付成功页）
+ * 开始模拟支付流程（1秒后进入“模拟支付”页面，并保存订单草稿）
  */
 async function startPay() {
   if (paying.value) return
   paying.value = true
   try {
-    await new Promise((res) => setTimeout(res, 2000))
+    await new Promise((res) => setTimeout(res, 1000))
     paySheetVisible.value = false
-    router.push({ name: 'pay-success', query: { name: scenic.value?.name || '', count: ticketCount.value, method: payMethod.value } })
+    const userStore = useUserStore()
+    const userId = userStore?.user?.id
+    if (!userId) {
+      showToast({ message: '请先登录', position: 'top' })
+      return router.push({ name: 'login' })
+    }
+    const unitPrice = Number(scenic.value?.ticketPrice || 0)
+    const totalAmount = Number((unitPrice * ticketCount.value).toFixed(2))
+    const draft = {
+      userId,
+      productType: 1,
+      productId: Number(route.params.id),
+      productName: scenic.value?.name || '景点',
+      description: scenic.value?.description || '',
+      quantity: ticketCount.value,
+      unitPrice,
+      totalAmount,
+      method: payMethod.value,
+      status: null,
+    }
+    sessionStorage.setItem('orderDraft', JSON.stringify(draft))
+    const params = { id: route.params.id }
+    const query = { name: scenic.value?.name || '', count: ticketCount.value, method: payMethod.value }
+    router.push({ name: 'pay-mock', params, query })
   } finally {
     paying.value = false
   }

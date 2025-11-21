@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/store/user.js'
 import OrderCard from '@/components/OrderCard.vue'
 import { fetchOrdersPage } from '@/api'
 
@@ -29,11 +30,12 @@ const MIN_LOADING_MS = 600
 async function loadOrders() {
   loading.value = true
   try {
+    const userId = useUserStore().user?.id
     const data = await fetchOrdersPage({
       pageNum: pageNum.value,
       pageSize: pageSize.value,
       sortDirection: 'DESC',
-      query: { statusList: [0, 3, 4] }
+      query: { statusList: [0, 3, 4], userId }
     })
     const first = (data.list || []).filter(o => {
       const s = Number(o.status ?? 0)
@@ -54,12 +56,13 @@ async function loadNextPage() {
   if (!hasMore.value || loadingMore.value) return
   loadingMore.value = true
   try {
+    const userId = useUserStore().user?.id
     const [data] = await Promise.all([
       fetchOrdersPage({
         pageNum: pageNum.value + 1,
         pageSize: pageSize.value,
         sortDirection: 'DESC',
-        query: { statusList: [0, 3, 4] }
+        query: { statusList: [0, 3, 4], userId }
       }),
       new Promise((r) => setTimeout(r, MIN_LOADING_MS))
     ])
@@ -92,6 +95,16 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
 })
+
+/**
+ * 打开订单详情页
+ * @param {Object} o 订单对象
+ */
+function openDetail(o) {
+  if (!o || !o.orderNo) return
+  sessionStorage.setItem('orderDetail', JSON.stringify(o))
+  router.push({ name: 'order-detail', params: { orderNo: o.orderNo } })
+}
 </script>
 
 <template>
@@ -102,15 +115,8 @@ onUnmounted(() => {
       v-loading="loading"
       
     >
-      <div
-        v-for="(o,i) in orders"
-        :key="o.orderNo"
-        
-      >
-        <OrderCard
-          :order="o"
-          :show-times="['expireTime']"
-        />
+      <div v-for="(o,i) in orders" :key="o.orderNo" @click="openDetail(o)">
+        <OrderCard :order="o" :show-times="['expireTime']" />
       </div>
       <div v-if="loadingMore" class="loading-more">
         <van-loading type="spinner" size="18" />

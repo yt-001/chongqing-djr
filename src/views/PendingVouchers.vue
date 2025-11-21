@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/store/user.js'
 import OrderCard from '@/components/OrderCard.vue'
 import { fetchExpiredPaidOrdersPage, fetchPendingValidOrdersPage } from '@/api'
 
@@ -31,12 +32,13 @@ const MIN_LOADING_MS = 600
 async function loadOrders() {
   loading.value = true
   try {
+    const userId = useUserStore().user?.id
     if (active.value === 'valid') {
       const data = await fetchPendingValidOrdersPage({
         pageNum: pageNum.value,
         pageSize: pageSize.value,
         sortDirection: 'DESC',
-        query: {}
+        query: { userId }
       })
       const list = (data.list || [])
       validOrders.value = list
@@ -47,7 +49,7 @@ async function loadOrders() {
         pageNum: pageNum.value,
         pageSize: pageSize.value,
         sortDirection: 'DESC',
-        query: {}
+        query: { userId }
       })
       const list = (data.list || [])
       expiredOrders.value = list
@@ -66,13 +68,14 @@ async function loadNextPage() {
   if (!hasMore.value || loadingMore.value) return
   loadingMore.value = true
   try {
+    const userId = useUserStore().user?.id
     if (active.value === 'valid') {
       const [data] = await Promise.all([
         fetchPendingValidOrdersPage({
           pageNum: pageNum.value + 1,
           pageSize: pageSize.value,
           sortDirection: 'DESC',
-          query: {}
+          query: { userId }
         }),
         new Promise((r) => setTimeout(r, MIN_LOADING_MS))
       ])
@@ -86,7 +89,7 @@ async function loadNextPage() {
           pageNum: pageNum.value + 1,
           pageSize: pageSize.value,
           sortDirection: 'DESC',
-          query: {}
+          query: { userId }
         }),
         new Promise((r) => setTimeout(r, MIN_LOADING_MS))
       ])
@@ -131,6 +134,16 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
 })
+
+/**
+ * 打开订单详情页
+ * @param {Object} o 订单对象
+ */
+function openDetail(o) {
+  if (!o || !o.orderNo) return
+  sessionStorage.setItem('orderDetail', JSON.stringify(o))
+  router.push({ name: 'order-detail', params: { orderNo: o.orderNo } })
+}
 </script>
 
 <template>
@@ -138,27 +151,27 @@ onUnmounted(() => {
     <van-nav-bar title="待消费卷" left-text="返回" left-arrow @click-left="goBack" />
     <div class="list" v-loading="loading">
       <van-tabs class="seg-tabs" v-model:active="active" swipeable animated :border="false">
-        <van-tab title="待使用" name="valid">
+      <van-tab title="待使用" name="valid">
           <div class="section">
-            <OrderCard
-              v-for="o in validOrders"
-              :key="o.orderNo"
-              :order="o"
-              :show-times="['paymentTime','expireTime']"
-              :inline-times="true"
-            />
+            <div v-for="o in validOrders" :key="o.orderNo" @click="openDetail(o)">
+              <OrderCard
+                :order="o"
+                :show-times="['paymentTime','expireTime']"
+                :inline-times="true"
+              />
+            </div>
             <div v-if="!validOrders.length && !loading" class="empty">暂无数据</div>
           </div>
         </van-tab>
         <van-tab title="已过期" name="expired">
           <div class="section">
-            <OrderCard
-              v-for="o in expiredOrders"
-              :key="o.orderNo"
-              :order="o"
-              :show-times="['paymentTime','expireTime']"
-              :inline-times="true"
-            />
+            <div v-for="o in expiredOrders" :key="o.orderNo" @click="openDetail(o)">
+              <OrderCard
+                :order="o"
+                :show-times="['paymentTime','expireTime']"
+                :inline-times="true"
+              />
+            </div>
             <div v-if="!expiredOrders.length && !loading" class="empty">暂无数据</div>
           </div>
         </van-tab>
@@ -170,7 +183,7 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
-  </template>
+</template>
 
 <style scoped>
 .page { min-height: 100vh; background: #f5f6f7; }

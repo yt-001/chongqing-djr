@@ -78,11 +78,9 @@ function fmtTime(t) {
 }
 
 /**
- * 占位：卡片点击
+ * 卡片自带点击反馈（由父级真正处理导航）
  */
-function onClickCard() {
-  showToast({ message: `订单 ${props.order?.orderNo || ''}`, position: 'top' })
-}
+function onClickCard() {}
 </script>
 
 <template>
