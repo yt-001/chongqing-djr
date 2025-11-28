@@ -24,6 +24,8 @@ const router = createRouter({
     { path: '/recommend', name: 'recommend', component: Recommend, meta: { title: '推荐' } },
     { path: '/food', name: 'food', component: Food, meta: { title: '美食' } },
     { path: '/food/:id', name: 'food-detail', component: FoodDetail, meta: { title: '美食详情', hideTabbar: true } },
+    { path: '/accommodations', name: 'accommodation-list', component: () => import('@/views/AccommodationList.vue'), meta: { title: '住宿列表', hideTabbar: true } },
+    { path: '/accommodations/:id', name: 'accommodation-detail', component: () => import('@/views/AccommodationDetail.vue'), meta: { title: '住宿详情', hideTabbar: true } },
     { path: '/scenic/:id', name: 'scenic-detail', component: ScenicDetail, meta: { title: '景点详情', hideTabbar: true } },
     { path: '/pay-success', name: 'pay-success', component: PaymentSuccess, meta: { title: '支付成功', hideTabbar: true } },
     { path: '/pay/mock', name: 'pay-mock', component: PayMock, meta: { title: '模拟支付', hideTabbar: true } },

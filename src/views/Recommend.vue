@@ -13,6 +13,10 @@ const onCategoryClick = (name) => {
     router.push({ name: 'map-navigation' })
     return
   }
+  if (name === '酒店民宿') {
+    router.push({ name: 'accommodation-list' })
+    return
+  }
   showToast({ message: `${name} 开发中`, position: 'top' })
 }
 

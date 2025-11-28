@@ -160,7 +160,7 @@ const newComment = ref('')
  * 初始化评论列表
  */
 async function initComments() {
-  if (!scenic.value?.id) return
+  if (!route.params.id) return
   pageIndex.value = 1
   hasMore.value = true
   comments.value = []
@@ -178,7 +178,7 @@ async function loadNextPage() {
     const res = await fetchAttractionCommentsPage({
       pageNum: pageIndex.value,
       pageSize: pageSize,
-      query: { attractionId: scenic.value.id }
+      query: { attractionId: Number(route.params.id) }
     })
     
     const list = res.list || res.records || []
@@ -212,7 +212,7 @@ async function submitComment() {
   try {
     await addAttractionComment({
       userId: userStore.user.id,
-      attractionId: scenic.value.id,
+      attractionId: Number(route.params.id),
       content: newComment.value,
       rating: 5 // 默认好评
     })

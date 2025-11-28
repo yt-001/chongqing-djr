@@ -4,6 +4,7 @@ export { fetchAdminAttractionsPage, fetchAdminAttractionById, createAdminAttract
 export { fetchRestaurantsPage, fetchRestaurantById } from './modules/restaurants.js'
 export { fetchAdminRestaurantsPage, fetchAdminRestaurantById, createAdminRestaurant, updateAdminRestaurant, deleteAdminRestaurant } from './modules/admin/restaurants.js'
 export { fetchAdminAccommodationsPage, fetchAdminAccommodationById, createAdminAccommodation, updateAdminAccommodation, deleteAdminAccommodation } from './modules/admin/accommodations.js' // 管理端-住宿分页+详情+增改删
+export { fetchAccommodationsPage, fetchAccommodationById } from './modules/accommodations.js' // 用户端-住宿分页+详情
 export { uploadImages, createImagesFormData, uploadSingleImage, uploadMultipleImages } from './modules/upload.js' // 文件上传
 export { updateUser } from './modules/user.js' // 用户更新
 export { fetchOrdersPage, fetchOrderById, createOrder, updateOrder, deleteOrder, fetchExpiredPaidOrdersPage, fetchPendingValidOrdersPage } from './modules/orders.js' // 订单模块（用户端）
