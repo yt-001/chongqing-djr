@@ -8,3 +8,6 @@ export { uploadImages, createImagesFormData, uploadSingleImage, uploadMultipleIm
 export { updateUser } from './modules/user.js' // 用户更新
 export { fetchOrdersPage, fetchOrderById, createOrder, updateOrder, deleteOrder, fetchExpiredPaidOrdersPage, fetchPendingValidOrdersPage } from './modules/orders.js' // 订单模块（用户端）
 export { fetchAdminOrdersPage } from './modules/admin/orders.js' // 管理端订单分页
+export * from './modules/admin/users.js'
+export * from './modules/favorites.js' // 收藏模块
+export * from './modules/comments.js' // 评论模块

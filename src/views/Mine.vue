@@ -204,7 +204,7 @@ const onFeatureClick = (name) => {
       <van-grid :column-num="4" clickable>
         <van-grid-item icon="orders-o" text="待消费卷" @click="router.push({ name: 'pending-vouchers' })" />
         <van-grid-item icon="service-o" text="客服中心" @click="onFeatureClick('客服中心')" />
-        <van-grid-item icon="star-o" text="我的收藏" @click="onFeatureClick('我的收藏')" />
+        <van-grid-item icon="star-o" text="我的收藏" @click="router.push({ name: 'my-favorites' })" />
         <van-grid-item icon="coupon-o" text="优惠券" @click="onFeatureClick('优惠券')" />
         <van-grid-item icon="clock-o" text="未完成" @click="router.push({ name: 'incomplete-orders' })" />
         <van-grid-item icon="passed" text="已完成" @click="router.push({ name: 'completed-orders' })" />

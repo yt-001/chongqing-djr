@@ -1,16 +1,70 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { showToast } from 'vant'
-import { fetchAdminAttractionById as fetchAttractionById } from '@/api'
+import { showToast, showConfirmDialog } from 'vant'
+import { fetchAdminAttractionById as fetchAttractionById, checkFavoriteAttraction, addFavoriteAttraction, removeFavoriteAttraction, fetchAttractionCommentsPage, addAttractionComment, deleteAttractionComment } from '@/api'
 import { useUserStore } from '@/store/user.js'
 import { processImageData } from '@/utils/imageUtils.js'
 
 // 景点详情数据
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
+
 const scenic = ref(null)
 const loading = ref(true)
+
+// 收藏状态
+const isFav = ref(false)
+
+// 监听景点数据加载，检查收藏状态
+watch(scenic, async (newVal) => {
+  if (newVal?.id) {
+    // 加载评论（独立于收藏状态）
+    initComments()
+    
+    // 如果已登录，检查收藏状态
+    if (userStore.isLoggedIn) {
+      try {
+        const res = await checkFavoriteAttraction({ 
+          attractionId: newVal.id,
+          userId: userStore.user.id 
+        })
+        isFav.value = !!res
+      } catch (e) {
+        isFav.value = false
+      }
+    } else {
+      isFav.value = false
+    }
+  }
+})
+
+// 切换收藏
+async function toggleFav() {
+  if (!scenic.value) return
+  if (!userStore.isLoggedIn) return showToast('请先登录')
+  
+  try {
+    if (isFav.value) {
+      await removeFavoriteAttraction({ 
+        attractionId: scenic.value.id,
+        userId: userStore.user.id
+      })
+      showToast('已取消收藏')
+      isFav.value = false
+    } else {
+      await addFavoriteAttraction({ 
+        attractionId: scenic.value.id,
+        userId: userStore.user.id
+      })
+      showToast('已添加到收藏')
+      isFav.value = true
+    }
+  } catch (e) {
+    showToast(e.message || '操作失败')
+  }
+}
 
 /**
  * 加载景点详情数据（按路由参数 id）
@@ -64,36 +118,32 @@ function callPhone() {
 }
 
 /**
- * 打开地图（基于经纬度）
+ * 打开地图（跳转到MapNavigation并带参）
  */
 function openMap() {
   const lat = scenic.value?.latitude
   const lng = scenic.value?.longitude
   if (!lat || !lng) return showToast('暂无地理位置')
-  const url = `https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(scenic.value?.name || '景点')}`
-  window.open(url, '_blank')
+  
+  // 跳转到地图导航页，并传递参数
+  router.push({
+    name: 'map-navigation',
+    query: {
+      lat,
+      lng,
+      name: scenic.value?.name,
+      address: scenic.value?.location
+    }
+  })
 }
 
 onMounted(loadDetail)
 
-/**
- * 评论示例数据（无需接口）
- * 生成30条示例数据用于滚动与分页
- */
-const allComments = ref(Array.from({ length: 30 }, (_, i) => {
-  const base = [
-    { user: '小李', avatar: '/images/99690364-15d9-4d57-9230-45b1773a0710.png', rating: 5, content: '风景很美，值得一去！', time: '2025-10-01' },
-    { user: '阿强', avatar: '/images/cf566d3f-f756-4f3f-bf83-401aff4af440.png', rating: 4, content: '交通方便，人也不算多。', time: '2025-10-03' },
-    { user: 'Zoe', avatar: '/images/de7b1565-a06f-434c-92b3-f4a6da39a14f.png', rating: 5, content: '服务很好，拍照出片！', time: '2025-10-06' }
-  ][i % 3]
-  return { id: i + 1, ...base }
-}))
-
-// 可视评论切片与滚动逻辑
+// 评论相关状态
 const comments = ref([])
 const pageIndex = ref(1)
 const pageSize = 10
-const hasMore = computed(() => comments.value.length < allComments.value.length)
+const hasMore = ref(true)
 const loadingMore = ref(false)
 const pulling = ref(false)
 const commentListRef = ref(null)
@@ -101,27 +151,103 @@ const showScrollbarHint = ref(false)
 const touchStartY = ref(0)
 const lastY = ref(0)
 const touching = ref(false)
+const totalComments = ref(0)
+
+// 评论输入
+const newComment = ref('')
 
 /**
- * 初始化评论列表为首屏10条
+ * 初始化评论列表
  */
-function initComments() {
-  comments.value = allComments.value.slice(0, pageSize)
+async function initComments() {
+  if (!scenic.value?.id) return
   pageIndex.value = 1
+  hasMore.value = true
+  comments.value = []
+  await loadNextPage()
 }
 
 /**
- * 追加下一页评论（每次10条），带600ms加载模拟
+ * 加载下一页评论
  */
 async function loadNextPage() {
   if (!hasMore.value || loadingMore.value) return
   loadingMore.value = true
-  await new Promise(res => setTimeout(res, 600))
-  const nextCount = Math.min((pageIndex.value + 1) * pageSize, allComments.value.length)
-  comments.value = allComments.value.slice(0, nextCount)
-  pageIndex.value += 1
-  loadingMore.value = false
-  // 保持当前阅读位置不变：不主动改变 scrollTop
+  
+  try {
+    const res = await fetchAttractionCommentsPage({
+      pageNum: pageIndex.value,
+      pageSize: pageSize,
+      query: { attractionId: scenic.value.id }
+    })
+    
+    const list = res.list || res.records || []
+    totalComments.value = res.total || 0
+    
+    if (pageIndex.value === 1) {
+      comments.value = list
+    } else {
+      comments.value.push(...list)
+    }
+    
+    if (list.length < pageSize) {
+      hasMore.value = false
+    } else {
+      pageIndex.value++
+    }
+  } catch (e) {
+    showToast('加载评论失败')
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+/**
+ * 提交评论
+ */
+async function submitComment() {
+  if (!userStore.isLoggedIn) return showToast('请先登录')
+  if (!newComment.value.trim()) return showToast('请输入评论内容')
+  
+  try {
+    await addAttractionComment({
+      userId: userStore.user.id,
+      attractionId: scenic.value.id,
+      content: newComment.value,
+      rating: 5 // 默认好评
+    })
+    showToast('评论成功')
+    newComment.value = ''
+    // 刷新列表
+    initComments()
+  } catch (e) {
+    showToast(e.message || '评论失败')
+  }
+}
+
+/**
+ * 删除评论
+ */
+function deleteComment(item) {
+  showConfirmDialog({
+    title: '删除评论',
+    message: '确定要删除这条评论吗？',
+  })
+    .then(async () => {
+      try {
+        await deleteAttractionComment(item.id, userStore.user.id)
+        showToast('删除成功')
+        // 从列表中移除
+        const idx = comments.value.findIndex(c => c.id === item.id)
+        if (idx > -1) {
+          comments.value.splice(idx, 1)
+          totalComments.value--
+        }
+      } catch (e) {
+        showToast(e.message || '删除失败')
+      }
+    })
+    .catch(() => {})
 }
 
 /**
@@ -193,6 +319,7 @@ const payMethod = ref('wechat')
 const paying = ref(false)
 const ticketCount = ref(1)
 
+
 /**
  * 打开支付方式选择弹层
  */
@@ -245,7 +372,12 @@ async function startPay() {
     <div class="cover" :style="{ backgroundImage: imageView.coverUrl ? `url(${imageView.coverUrl})` : 'none' }">
       <van-nav-bar left-text="返回" left-arrow @click-left="router.back()" />
       <div class="hero-card">
-        <div class="hero-title">{{ scenic?.name || '景点' }}</div>
+        <div class="hero-header">
+          <div class="hero-title">{{ scenic?.name || '景点' }}</div>
+          <div class="fav-btn" :class="{ active: isFav }" @click.stop="toggleFav">
+            <van-icon :name="isFav ? 'star' : 'star-o'" />
+          </div>
+        </div>
         <div class="hero-sub">{{ scenic?.location || '未知位置' }}</div>
         <div class="hero-tags">
           <van-tag type="primary" plain>开放时间 {{ scenic?.openHours || '未知' }}</van-tag>
@@ -287,8 +419,26 @@ async function startPay() {
       <!-- 评论模块 -->
       <div class="section-head">
         <div class="intro-title">评论</div>
-        <div class="pager">共 {{ allComments.length }} 条</div>
+        <div class="pager">共 {{ totalComments }} 条</div>
       </div>
+      
+      <!-- 评论输入 -->
+      <div class="comment-input-box">
+        <van-field
+          v-model="newComment"
+          rows="1"
+          autosize
+          type="textarea"
+          placeholder="发表你的看法..."
+          border
+          class="comment-field"
+        >
+          <template #button>
+            <van-button size="small" type="primary" :disabled="!newComment.trim()" @click="submitComment">发布</van-button>
+          </template>
+        </van-field>
+      </div>
+
       <div
         class="comment-list"
         :class="{ scrollable: comments.length > 5, 'pull-bounce': pulling }"
@@ -300,15 +450,21 @@ async function startPay() {
       >
         <div v-if="showScrollbarHint" class="scrollbar-hint"></div>
         <div class="comment-item" v-for="c in comments" :key="c.id">
-          <van-image round width="40" height="40" :src="c.avatar" />
+          <van-image round width="40" height="40" :src="c.avatar || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
           <div class="comment-content">
             <div class="row">
-              <span class="user">{{ c.user }}</span>
+              <span class="user">{{ c.userName || c.user || '用户' }}</span>
               <van-rate :model-value="c.rating" readonly size="14" gutter="2" />
             </div>
             <div class="text">{{ c.content }}</div>
-            <div class="time">{{ c.time }}</div>
+            <div class="time">{{ c.createTime || c.time }}</div>
           </div>
+          <van-icon 
+            v-if="userStore.isLoggedIn && (c.userId === userStore.user.id)" 
+            name="delete-o" 
+            class="delete-btn" 
+            @click.stop="deleteComment(c)" 
+          />
         </div>
         <div v-if="loadingMore" class="loading-more">
           <van-loading type="spinner" size="18" />
@@ -359,7 +515,10 @@ async function startPay() {
 .scenic-detail { background: #f5f6f7; min-height: 100vh; }
 .cover { position: relative; height: 240px; background: #eaeef3; background-size: cover; background-position: center; }
 .hero-card { position: absolute; left: 12px; right: 12px; bottom: -36px; background: #fff; border-radius: 18px; box-shadow: 0 10px 24px rgba(0,0,0,0.10); padding: 12px 14px; }
-.hero-title { font-weight: 800; font-size: 18px; color: #143a72; }
+.hero-header { display: flex; justify-content: space-between; align-items: flex-start; }
+.hero-title { font-weight: 800; font-size: 18px; color: #143a72; flex: 1; }
+.fav-btn { width: 36px; height: 36px; border: 2px solid #ddd; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #999; transition: all 0.3s; flex-shrink: 0; margin-left: 12px; }
+.fav-btn.active { border-color: #ff9800; color: #ff9800; background: #fff7e0; }
 .hero-sub { color: #607d8b; font-size: 13px; margin-top: 4px; }
 .hero-tags { display: flex; gap: 8px; margin-top: 8px; }
 
@@ -374,6 +533,8 @@ async function startPay() {
 
 .actions { display: grid; gap: 10px; padding: 12px; }
 .section-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px 8px; }
+.comment-input-box { margin: 0 16px 8px; border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
+.comment-field { padding: 8px 12px; background: #fafafa; }
 .comment-list { margin: 0 16px 16px; background: #fff; border-radius: 12px; padding: 8px 12px; overflow: hidden; position: relative; --item-h: 68px; }
 .comment-list.scrollable { max-height: calc(5 * var(--item-h)); overflow: auto; }
 .comment-list.scrollable::-webkit-scrollbar { width: 6px; }
@@ -382,6 +543,7 @@ async function startPay() {
 .comment-item { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f0f2f5; min-height: var(--item-h); }
 .comment-item:last-child { border-bottom: none; }
 .comment-content { flex: 1; }
+.delete-btn { color: #999; padding: 4px 0 4px 8px; font-size: 16px; cursor: pointer; }
 .comment-content .row { display: flex; align-items: center; justify-content: space-between; }
 .comment-content .user { font-weight: 600; }
 .comment-content .text { font-size: 13px; color: #444; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

@@ -33,6 +33,8 @@ const router = createRouter({
     { path: '/vouchers/pending', name: 'pending-vouchers', component: PendingVouchers, meta: { title: '待消费卷', hideTabbar: true } },
     { path: '/orders/incomplete', name: 'incomplete-orders', component: UnpaidOrders, meta: { title: '未完成', hideTabbar: true } },
     { path: '/orders/completed', name: 'completed-orders', component: CompletedOrders, meta: { title: '已完成', hideTabbar: true } },
+    { path: '/my-favorites', name: 'my-favorites', component: () => import('@/views/MyFavorites.vue'), meta: { title: '我的收藏', hideTabbar: true } },
+    { path: '/map', name: 'map-navigation', component: () => import('@/views/MapNavigation.vue'), meta: { title: '景点导航', hideTabbar: true } },
 
     { path: '/login', name: 'login', component: () => import('@/views/Login.vue'), meta: { title: '登录', hideTabbar: true } },
     { path: '/register', name: 'register', component: () => import('@/views/Register.vue'), meta: { title: '注册', hideTabbar: true } },
@@ -45,6 +47,7 @@ const router = createRouter({
         { path: 'restaurants', name: 'admin-restaurants', component: () => import('@/views/admin/AdminRestaurants.vue'), meta: { title: '餐饮管理', hideTabbar: true } },
         { path: 'accommodations', name: 'admin-accommodations', component: () => import('@/views/admin/AdminAccommodations.vue'), meta: { title: '住宿管理', hideTabbar: true } },
         { path: 'orders', name: 'admin-orders', component: () => import('@/views/admin/AdminOrders.vue'), meta: { title: '订单管理', hideTabbar: true } },
+        { path: 'users', name: 'admin-users', component: () => import('@/views/admin/AdminUserManagement.vue'), meta: { title: '用户管理', hideTabbar: true } },
         { path: 'user', name: 'admin-user', component: () => import('@/views/admin/AdminUserClient.vue'), meta: { title: '用户端', hideTabbar: true } },
         { path: 'profile', name: 'admin-profile', component: () => import('@/views/admin/Profile.vue'), meta: { title: '个人中心', hideTabbar: true } }
       ]

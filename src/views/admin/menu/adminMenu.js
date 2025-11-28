@@ -26,5 +26,6 @@ export default [
       { label: '订单列表', name: 'admin-orders' }
     ]
   },
-  { label: '用户端', name: 'admin-user', icon: 'User' }
+  { label: '用户管理', name: 'admin-users', icon: 'User' },
+  { label: '用户端', name: 'admin-user', icon: 'Monitor' }
 ]

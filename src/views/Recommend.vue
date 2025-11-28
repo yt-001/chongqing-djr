@@ -9,6 +9,10 @@ import { fetchAttractionsPage } from '../api/modules/attractions.js'
 
 // 分类点击事件（示例）
 const onCategoryClick = (name) => {
+  if (name === '旅游地图') {
+    router.push({ name: 'map-navigation' })
+    return
+  }
   showToast({ message: `${name} 开发中`, position: 'top' })
 }
 
