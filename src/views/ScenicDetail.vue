@@ -297,8 +297,8 @@ function onCommentTouchMove(e) {
     setTimeout(() => { showScrollbarHint.value = false }, 800)
     setTimeout(() => { pulling.value = false }, 280)
     loadNextPage()
-    // 防止过度滚动产生空白回弹
-    e.preventDefault()
+    // 防止过度滚动产生空白回弹（仅在事件可取消时）
+    if (e.cancelable) e.preventDefault()
   }
 }
 

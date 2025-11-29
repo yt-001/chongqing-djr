@@ -29,7 +29,7 @@ export function removeFavoriteAttraction(payload) {
  * @param {{ pageNum: number, pageSize: number, userId?: number }} payload
  */
 export function fetchFavoriteAttractionsPage(payload) {
-  return request('/favorites/attractions/page', { method: 'POST', body: payload })
+  return request('/favorites/attractions/page', { method: 'POST', body: payload, timeoutMs: 10000 })
 }
 
 // --- 美食收藏 ---
@@ -63,7 +63,7 @@ export function removeFavoriteRestaurant(payload) {
  * @param {{ pageNum: number, pageSize: number, userId?: number }} payload
  */
 export function fetchFavoriteRestaurantsPage(payload) {
-  return request('/favorites/restaurants/page', { method: 'POST', body: payload })
+  return request('/favorites/restaurants/page', { method: 'POST', body: payload, timeoutMs: 10000 })
 }
 
 // --- 住宿收藏 ---
@@ -97,5 +97,5 @@ export function removeFavoriteAccommodation(payload) {
  * @param {{ pageNum: number, pageSize: number, userId?: number }} payload
  */
 export function fetchFavoriteAccommodationsPage(payload) {
-  return request('/favorites/accommodations/page', { method: 'POST', body: payload })
+  return request('/favorites/accommodations/page', { method: 'POST', body: payload, timeoutMs: 10000 })
 }

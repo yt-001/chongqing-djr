@@ -4,8 +4,11 @@ import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { processImageData } from '@/utils/imageUtils.js'
 import { fetchRestaurantsPage } from '../api/modules/restaurants.js'
+import { fetchFavoriteRestaurantsPage } from '@/api'
+import { useUserStore } from '@/store/user.js'
 
 const router = useRouter()
+const userStore = useUserStore()
 const searchValue = ref('')
 
 // 轮播图数据
@@ -29,6 +32,13 @@ const loading = ref(true)
 const loadingMore = ref(false)
 const hasMore = ref(true)
 const pageNum = ref(1)
+// 收藏视图
+const activeView = ref('all') // all | fav
+const favList = ref([])
+const favLoading = ref(false)
+const favFinished = ref(false)
+const favPageNum = ref(1)
+const FAV_PAGE_SIZE = 10
 
 const onSearch = (val) => {
   showToast(`搜索：${val}`)
@@ -98,7 +108,14 @@ const loadData = async (isLoadMore = false) => {
 const handleScroll = () => {
   const { scrollTop, clientHeight, scrollHeight } = document.documentElement
   if (scrollTop + clientHeight >= scrollHeight - 50) {
-    loadData(true)
+    if (activeView.value === 'all') {
+      loadData(true)
+    } else {
+      // 收藏视图下拉加载下一页
+      if (!favFinished.value && !favLoading.value) {
+        loadFavorites(false)
+      }
+    }
   }
 }
 
@@ -110,6 +127,47 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
 })
+
+/**
+ * 加载收藏的美食列表（需登录，仅查询）
+ */
+async function loadFavorites(reset = false) {
+  if (!userStore.isLoggedIn) {
+    favLoading.value = false
+    favFinished.value = true
+    return
+  }
+  if (reset) { favPageNum.value = 1; favFinished.value = false; favList.value = [] }
+  if (favFinished.value || favLoading.value) return
+  favLoading.value = true
+  try {
+    const res = await fetchFavoriteRestaurantsPage({
+      pageNum: favPageNum.value,
+      pageSize: FAV_PAGE_SIZE,
+      query: { userId: userStore.user?.id }
+    })
+    const newData = res.list || res.records || res.data?.list || []
+    if (favPageNum.value === 1) favList.value = newData
+    else favList.value.push(...newData)
+    if (newData.length < FAV_PAGE_SIZE) favFinished.value = true
+    else favPageNum.value++
+  } catch (e) {
+    favFinished.value = true
+  } finally {
+    favLoading.value = false
+  }
+}
+
+/**
+ * 切换视图（全部/收藏）
+ * @param {'all'|'fav'} name
+ */
+function onViewChange(name) {
+  activeView.value = name
+  if (name === 'fav') {
+    loadFavorites(true)
+  }
+}
 </script>
 
 <template>
@@ -136,6 +194,14 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- 视图切换：全部 / 收藏 -->
+    <div style="padding: 0 12px 8px">
+      <van-tabs :active="activeView" @change="onViewChange" swipeable animated :border="false">
+        <van-tab title="全部" name="all" />
+        <van-tab title="收藏" name="fav" />
+      </van-tabs>
+    </div>
+
     <!-- 骨架屏 -->
     <div class="food-list" v-if="loading">
       <div class="food-card" v-for="n in 4" :key="n">
@@ -143,8 +209,8 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 美食列表 -->
-    <div class="food-list" v-else>
+    <!-- 美食列表（全部） -->
+    <div class="food-list" v-else-if="activeView === 'all'">
       <div class="food-card" v-for="food in foodList" :key="food.id" @click="onCardClick(food.id)">
         <van-image class="food-image" :src="resolveImageUrl(food.coverImage)" width="100%" height="180" fit="cover" />
         <div class="food-info">
@@ -167,6 +233,40 @@ onUnmounted(() => {
             <span>{{ food.contactPhone }}</span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- 美食列表（收藏） -->
+    <div class="food-list" v-else>
+      <div v-if="!userStore.isLoggedIn" class="food-card" style="padding: 16px; text-align: center;">
+        <span>请先登录查看收藏</span>
+      </div>
+      <div class="food-card" v-for="item in favList" :key="item.id || item.restaurant?.id || item.targetId" @click="onCardClick((item.restaurant?.id) || item.id || item.targetId)">
+        <van-image class="food-image" :src="resolveImageUrl((item.restaurant?.coverImage) || item.coverImage)" width="100%" height="180" fit="cover" />
+        <div class="food-info">
+          <div class="title">{{ (item.restaurant?.name) || item.name }}</div>
+          <div class="rating-author">
+            <van-rate :model-value="(item.restaurant?.rating) || item.rating" :size="16" color="#ffd21e" void-icon="star" void-color="#eee" readonly allow-half />
+          </div>
+          <div class="meta">
+            <div class="meta-item">
+              <van-icon name="clock-o" />
+              <span>{{ (item.restaurant?.openHours) || item.openHours }}</span>
+            </div>
+            <div class="meta-item">
+              <van-icon name="gold-coin-o" />
+              <span>{{ (item.restaurant?.priceRange) || item.priceRange }}</span>
+            </div>
+          </div>
+          <div class="meta-item phone">
+            <van-icon name="phone-o" />
+            <span>{{ (item.restaurant?.contactPhone) || item.contactPhone }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="load-more-tip">
+        <van-loading v-if="favLoading" size="20px">加载中...</van-loading>
+        <span v-else-if="favFinished && favList.length > 0">--- 我是有底线的 ---</span>
       </div>
     </div>
 

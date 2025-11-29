@@ -108,8 +108,20 @@ function getCover(item) {
   return 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg' // 默认图
 }
 
-function goToDetail(orderId) {
-    router.push({ name: 'order-detail', params: { orderNo: orderId } })
+/**
+ * 进入订单详情（写入会话缓存，避免读取到旧订单）
+ * @param {Object} item 订单对象
+ */
+function goToDetail(item) {
+    if (!item) return
+    try {
+        const safe = {
+            ...item,
+            orderNo: item.orderNo || item.id
+        }
+        sessionStorage.setItem('orderDetail', JSON.stringify(safe))
+    } catch {}
+    router.push({ name: 'order-detail', params: { orderNo: item.orderNo || item.id } })
 }
 
 onMounted(() => {
@@ -142,7 +154,7 @@ onMounted(() => {
         v-for="item in list"
         :key="item.id"
         class="order-card"
-        @click="goToDetail(item.id)"
+        @click="goToDetail(item)"
       >
         <div class="card-header">
           <span class="order-no">订单号：{{ item.orderNo || item.id }}</span>

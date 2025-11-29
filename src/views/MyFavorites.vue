@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { 
@@ -33,12 +33,27 @@ watch(activeTab, (newVal) => {
   }
 })
 
+// 首次进入页面，主动加载当前 Tab 数据
+onMounted(() => {
+  const tab = tabs.value[activeTab.value]
+  if (tab.list.length === 0 && !tab.finished && !tab.loading) {
+    onLoad()
+  }
+})
+
 /**
- * 加载数据
+ * 加载数据（需登录，分页查询收藏）
  */
 async function onLoad() {
   const tabIndex = activeTab.value
   const tab = tabs.value[tabIndex]
+  
+  // 登录拦截：未登录不发起请求
+  if (!userStore.isLoggedIn) {
+    tab.loading = false
+    tab.finished = true
+    return
+  }
   
   if (tab.finished || tab.loading) return
   tab.loading = true
@@ -48,7 +63,7 @@ async function onLoad() {
     const params = { 
       pageNum: tab.pageNum, 
       pageSize, 
-      query: { userId: userStore.user?.id } 
+      query: { userId: userStore.user?.id } // 显式传递用户ID以兼容后端
     }
     
     if (tabIndex === 0) {
@@ -75,7 +90,8 @@ async function onLoad() {
     }
   } catch (e) {
     tab.finished = true
-    // showToast('加载失败')
+    console.error(e)
+    showToast(e?.message || '加载失败')
   } finally {
     tab.loading = false
   }
@@ -105,8 +121,26 @@ function getCover(item) {
  * 跳转详情
  */
 function goDetail(item) {
-  const target = getTarget(item)
-  const id = target.id || item.targetId // 假设通用ID
+  /**
+   * 获取当前卡片对应实体的真实ID
+   * 优先取嵌套实体ID；否则取平铺的 {attractionId|restaurantId|accommodationId}；再兜底 targetId
+   * @param {any} it
+   * @returns {number|string|undefined}
+   */
+  function getTargetId(it) {
+    if (activeTab.value === 0) {
+      return (it.attraction && it.attraction.id) || it.attractionId || it.targetId || (it.id && it.entityType === 'attraction' ? it.id : undefined)
+    }
+    if (activeTab.value === 1) {
+      return (it.restaurant && it.restaurant.id) || it.restaurantId || it.targetId || (it.id && it.entityType === 'restaurant' ? it.id : undefined)
+    }
+    if (activeTab.value === 2) {
+      return (it.accommodation && it.accommodation.id) || it.accommodationId || it.targetId || (it.id && it.entityType === 'accommodation' ? it.id : undefined)
+    }
+    return it.targetId || it.id
+  }
+
+  const id = getTargetId(item)
   if (!id) return
 
   if (activeTab.value === 0) {
@@ -114,7 +148,7 @@ function goDetail(item) {
   } else if (activeTab.value === 1) {
     router.push({ name: 'food-detail', params: { id } })
   } else if (activeTab.value === 2) {
-    router.push({ name: 'hotel-detail', params: { id } })
+    router.push({ name: 'accommodation-detail', params: { id } })
   }
 }
 
