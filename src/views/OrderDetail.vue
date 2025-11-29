@@ -16,6 +16,8 @@ const codeWidth = ref(220)
 const loadingCodes = ref(true)
 const acting = ref(false)
 const MIN_ACTING_MS = 800
+const payVisible = ref(false)
+const payMethod = ref('')
 
 /**
  * 绘制模拟二维码（非标准，仅用于 UI 展示）
@@ -54,15 +56,20 @@ async function initDetail() {
     return router.back()
   }
   await nextTick()
-  updateCodeWidth()
-  renderQRCode(qrRef.value, '')
-  renderBarcode(barcodeRef.value, '')
-  setTimeout(async () => {
-    try {
-      const text = String(order.value.orderNo)
-      await renderCodes(text)
-    } finally { loadingCodes.value = false }
-  }, 800)
+  // 仅在已支付或已使用状态下才渲染二维码/条形码
+  if (Number(order.value.status) === 1 || Number(order.value.status) === 2) {
+    updateCodeWidth()
+    renderQRCode(qrRef.value, '')
+    renderBarcode(barcodeRef.value, '')
+    setTimeout(async () => {
+      try {
+        const text = String(order.value.orderNo)
+        await renderCodes(text)
+      } finally { loadingCodes.value = false }
+    }, 800)
+  } else {
+    loadingCodes.value = false
+  }
 }
 
 /**
@@ -126,6 +133,24 @@ async function handleCancel() {
 }
 
 /**
+ * 打开支付方式选择（未支付）
+ */
+function onGoPay() { payVisible.value = true }
+
+/**
+ * 确认支付方式并前往模拟支付页（对现有订单进行状态更新）
+ * @param {string} method wechat|alipay
+ */
+function confirmPay(method) {
+  if (!order.value) return
+  payMethod.value = method
+  const payload = { ...order.value, payMethod: method }
+  sessionStorage.setItem('payOrder', JSON.stringify(payload))
+  payVisible.value = false
+  router.push({ name: 'pay-mock' })
+}
+
+/**
  * 申请退款（待使用页面）
  */
 async function handleRefund() {
@@ -168,21 +193,33 @@ async function handleRefund() {
       <div class="desc">{{ order.description }}</div>
 
       <div class="codes" ref="codesRef">
-        <div class="code-box">
-          <svg ref="barcodeRef" class="barcode"></svg>
-        </div>
-        <div class="code-box">
-          <canvas ref="qrRef" class="qr"></canvas>
-        </div>
-        <div class="code-cover" v-if="loadingCodes">
-          <van-loading type="spinner" size="22" />
-        </div>
+        <template v-if="order.status === 1 || order.status === 2">
+          <div class="code-box">
+            <svg ref="barcodeRef" class="barcode"></svg>
+          </div>
+          <div class="code-box">
+            <canvas ref="qrRef" class="qr"></canvas>
+          </div>
+          <div class="code-cover" v-if="loadingCodes">
+            <van-loading type="spinner" size="22" />
+          </div>
+        </template>
       </div>
       <div class="actions">
+        <van-button v-if="order.status === 0" type="primary" round block plain :loading="acting" :disabled="acting" @click="onGoPay">前往支付</van-button>
         <van-button v-if="order.status === 0" type="danger" round block :loading="acting" loading-text="正在处理..." :disabled="acting" @click="handleCancel">取消订单</van-button>
         <van-button v-if="order.status === 1" type="warning" round block plain :loading="acting" loading-text="正在处理..." :disabled="acting" @click="handleRefund">申请退款</van-button>
       </div>
     </div>
+    <van-popup v-model:show="payVisible" round :style="{ width: '88%' }">
+      <van-nav-bar title="选择支付方式" left-text="返回" left-arrow @click-left="payVisible=false" />
+      <div class="pay-body">
+        <van-grid :column-num="2" clickable>
+          <van-grid-item icon="wechat" text="微信支付" @click="confirmPay('wechat')" />
+          <van-grid-item icon="alipay" text="支付宝支付" @click="confirmPay('alipay')" />
+        </van-grid>
+      </div>
+    </van-popup>
   </div>
 </template>
 
@@ -200,4 +237,5 @@ async function handleRefund() {
 .qr { width: 100%; aspect-ratio: 1 / 1; }
 .barcode { width: 100%; height: 90px; }
 .actions { display: grid; gap: 8px; }
+.pay-body { padding: 12px; }
 </style>

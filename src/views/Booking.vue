@@ -17,6 +17,7 @@ const pageSize = 10
 
 /**
  * 加载预定列表
+ * 排序：按 `createTime` 降序
  */
 async function onLoad() {
   // 检查登录
@@ -34,6 +35,8 @@ async function onLoad() {
     const payload = {
       pageNum: pageNum.value,
       pageSize,
+      sortField: 'createTime',
+      sortDirection: 'DESC',
       query: {
         userId: userStore.user.id,
         productType: 3 // 仅查询住宿订单

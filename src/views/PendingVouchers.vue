@@ -28,6 +28,7 @@ const MIN_LOADING_MS = 600
 
 /**
  * 加载当前选中 Tab 的订单列表（待使用或已过期）
+ * 排序：按 `createTime` 降序
  */
 async function loadOrders() {
   loading.value = true
@@ -37,6 +38,7 @@ async function loadOrders() {
       const data = await fetchPendingValidOrdersPage({
         pageNum: pageNum.value,
         pageSize: pageSize.value,
+        sortField: 'createTime',
         sortDirection: 'DESC',
         query: { userId }
       })
@@ -48,6 +50,7 @@ async function loadOrders() {
       const data = await fetchExpiredPaidOrdersPage({
         pageNum: pageNum.value,
         pageSize: pageSize.value,
+        sortField: 'createTime',
         sortDirection: 'DESC',
         query: { userId }
       })
@@ -62,7 +65,7 @@ async function loadOrders() {
 }
 
 /**
- * 追加加载当前选中 Tab 的下一页
+ * 追加加载当前选中 Tab 的下一页（按 `createTime` 降序）
  */
 async function loadNextPage() {
   if (!hasMore.value || loadingMore.value) return
@@ -74,6 +77,7 @@ async function loadNextPage() {
         fetchPendingValidOrdersPage({
           pageNum: pageNum.value + 1,
           pageSize: pageSize.value,
+          sortField: 'createTime',
           sortDirection: 'DESC',
           query: { userId }
         }),
@@ -88,6 +92,7 @@ async function loadNextPage() {
         fetchExpiredPaidOrdersPage({
           pageNum: pageNum.value + 1,
           pageSize: pageSize.value,
+          sortField: 'createTime',
           sortDirection: 'DESC',
           query: { userId }
         }),

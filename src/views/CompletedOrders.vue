@@ -26,6 +26,7 @@ const MIN_LOADING_MS = 600
 
 /**
  * 加载“已完成”订单列表（状态=2 已使用）
+ * 排序：按 `createTime` 降序
  */
 async function loadOrders() {
   loading.value = true
@@ -34,6 +35,7 @@ async function loadOrders() {
     const data = await fetchOrdersPage({
       pageNum: pageNum.value,
       pageSize: pageSize.value,
+      sortField: 'createTime',
       sortDirection: 'DESC',
       query: { statusList: [2], userId }
     })
@@ -47,7 +49,7 @@ async function loadOrders() {
 }
 
 /**
- * 追加加载下一页（下拉抖动触发）
+ * 追加加载下一页（下拉抖动触发，按 `createTime` 降序）
  */
 async function loadNextPage() {
   if (!hasMore.value || loadingMore.value) return
@@ -58,6 +60,7 @@ async function loadNextPage() {
       fetchOrdersPage({
         pageNum: pageNum.value + 1,
         pageSize: pageSize.value,
+        sortField: 'createTime',
         sortDirection: 'DESC',
         query: { statusList: [2], userId }
       }),

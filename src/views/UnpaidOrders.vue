@@ -26,6 +26,7 @@ const MIN_LOADING_MS = 600
 
 /**
  * 加载“未完成”订单列表（状态包含：0 待支付、3 已取消、4 已退款 + 已过期）
+ * 排序：按 `createTime` 降序
  */
 async function loadOrders() {
   loading.value = true
@@ -34,6 +35,7 @@ async function loadOrders() {
     const data = await fetchOrdersPage({
       pageNum: pageNum.value,
       pageSize: pageSize.value,
+      sortField: 'createTime',
       sortDirection: 'DESC',
       query: { statusList: [0, 3, 4], userId }
     })
@@ -50,7 +52,7 @@ async function loadOrders() {
 }
 
 /**
- * 追加加载下一页
+ * 追加加载下一页（按 `createTime` 降序）
  */
 async function loadNextPage() {
   if (!hasMore.value || loadingMore.value) return
@@ -61,6 +63,7 @@ async function loadNextPage() {
       fetchOrdersPage({
         pageNum: pageNum.value + 1,
         pageSize: pageSize.value,
+        sortField: 'createTime',
         sortDirection: 'DESC',
         query: { statusList: [0, 3, 4], userId }
       }),
@@ -105,6 +108,7 @@ function openDetail(o) {
   sessionStorage.setItem('orderDetail', JSON.stringify(o))
   router.push({ name: 'order-detail', params: { orderNo: o.orderNo } })
 }
+
 </script>
 
 <template>

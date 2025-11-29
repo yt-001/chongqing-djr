@@ -11,6 +11,8 @@ const router = useRouter()
 
 const detail = ref(null)
 const loading = ref(true)
+const payVisible = ref(false)
+const quantity = ref(1)
 
 // 模拟房东信息（如果后端没有返回的话）
 const hostInfo = ref({
@@ -90,9 +92,30 @@ function onBack() {
   router.back()
 }
 
-function onBook() {
-  showToast('预定功能开发中...')
-  // TODO: 跳转到下单页面
+function onBook() { payVisible.value = true }
+
+/**
+ * 构建订单草稿并跳转到模拟支付页
+ * @returns {Promise<void>}
+ */
+async function onConfirmPay() {
+  if (!detail.value) return showToast('缺少房源信息')
+  const unit = Number(detail.value.pricePerNight || 0)
+  const qty = Math.max(1, Number(quantity.value || 1))
+  const total = Number((unit * qty).toFixed(2))
+  const draft = {
+    productType: 3,
+    productId: detail.value.id,
+    productName: detail.value.name,
+    description: detail.value.description || typeText.value,
+    quantity: qty,
+    unitPrice: unit,
+    totalAmount: total,
+    status: 0
+  }
+  sessionStorage.setItem('orderDraft', JSON.stringify(draft))
+  payVisible.value = false
+  router.push({ name: 'pay-mock' })
 }
 </script>
 
@@ -206,6 +229,27 @@ function onBook() {
         <van-action-bar-button type="primary" text="联系前台" @click="onCall(detail?.contactPhone)" />
         <van-action-bar-button type="danger" text="立即预定" @click="onBook" />
       </van-action-bar>
+      <van-popup v-model:show="payVisible" round position="bottom">
+        <div style="padding:16px 16px 24px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="font-weight:600;">确认订单</div>
+            <van-icon name="cross" @click="payVisible=false" />
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin:12px 0;">
+            <div>数量</div>
+            <van-stepper v-model="quantity" min="1" />
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin:12px 0;">
+            <div>单价</div>
+            <div>¥{{ detail?.pricePerNight || 0 }}</div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin:12px 0; font-weight:700;">
+            <div>合计</div>
+            <div>¥{{ ((Number(detail?.pricePerNight||0))*Math.max(1,Number(quantity||1))).toFixed(2) }}</div>
+          </div>
+          <van-button block type="primary" round @click="onConfirmPay">去支付</van-button>
+        </div>
+      </van-popup>
     </template>
   </div>
 </template>

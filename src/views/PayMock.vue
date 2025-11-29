@@ -1,8 +1,9 @@
 <script setup>
 import { useRouter, useRoute } from 'vue-router'
 import { ref } from 'vue'
+import { useUserStore } from '@/store/user.js'
 import { showToast } from 'vant'
-import { createOrder } from '@/api'
+import { createOrder, updateOrder } from '@/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -11,23 +12,46 @@ const loading = ref(false)
 /**
  * 模拟支付成功：读取订单草稿，设置为已支付并创建订单
  */
+/**
+ * 创建已支付订单（住宿 productType=3）
+ * 将草稿与当前用户信息组装为后端需要的驼峰字段
+ */
 async function onPaySuccess() {
   if (loading.value) return
   loading.value = true
   try {
     await new Promise((r) => setTimeout(r, 600))
-    const raw = sessionStorage.getItem('orderDraft')
-    const draft = raw ? JSON.parse(raw) : null
-    if (!draft) {
+    const rawDraft = sessionStorage.getItem('orderDraft')
+    const draft = rawDraft ? JSON.parse(rawDraft) : null
+    const rawExisting = sessionStorage.getItem('payOrder')
+    const existing = rawExisting ? JSON.parse(rawExisting) : null
+    if (!draft && !existing) {
       showToast({ message: '订单信息缺失', position: 'top' })
       return
     }
-    const payload = {
-      ...draft,
-      status: 1,
+    const userId = useUserStore().user?.id
+    if (!userId) {
+      showToast({ message: '请先登录后再支付', position: 'top' })
+      return router.push({ name: 'login' })
     }
-    await createOrder(payload)
-    sessionStorage.removeItem('orderDraft')
+    if (existing) {
+      await updateOrder({ id: existing.id, orderNo: existing.orderNo, status: 1 })
+      sessionStorage.removeItem('payOrder')
+    } else {
+      const payload = {
+        userId,
+        productType: draft.productType ?? draft.product_type ?? 3,
+        productId: draft.productId ?? draft.product_id,
+        productName: draft.productName ?? draft.product_name,
+        description: draft.description,
+        quantity: draft.quantity,
+        unitPrice: draft.unitPrice ?? draft.unit_price,
+        totalAmount: draft.totalAmount ?? draft.total_amount,
+        status: 1,
+      }
+      await createOrder(payload)
+      sessionStorage.removeItem('orderDraft')
+    }
     router.push({ name: 'pay-success', params: route.params || {}, query: route.query || {} })
   } catch (e) {
     showToast({ message: '创建订单失败', position: 'top' })
@@ -40,23 +64,45 @@ async function onPaySuccess() {
  * 模拟支付失败：读取订单草稿，设置为未支付并创建订单，然后返回
  * 不传递支付/过期/使用时间，时间由后端负责生成
  */
+/**
+ * 创建未支付订单（住宿 productType=3）
+ * 取消支付也要正常入库，状态为0
+ */
 async function onPayFail() {
   if (loading.value) return
   loading.value = true
   try {
-    const raw = sessionStorage.getItem('orderDraft')
-    const draft = raw ? JSON.parse(raw) : null
-    if (!draft) {
+    const rawDraft = sessionStorage.getItem('orderDraft')
+    const draft = rawDraft ? JSON.parse(rawDraft) : null
+    const rawExisting = sessionStorage.getItem('payOrder')
+    const existing = rawExisting ? JSON.parse(rawExisting) : null
+    if (!draft && !existing) {
       showToast({ message: '订单信息缺失', position: 'top' })
       return router.back()
     }
-    const payload = {
-      ...draft,
-      status: 0,
-      failReason: 'PaymentFailed',
+    const userId = useUserStore().user?.id
+    if (!userId) {
+      showToast({ message: '请先登录后再取消支付', position: 'top' })
+      return router.push({ name: 'login' })
     }
-    await createOrder(payload)
-    sessionStorage.removeItem('orderDraft')
+    if (existing) {
+      await updateOrder({ id: existing.id, orderNo: existing.orderNo, status: 0 })
+      sessionStorage.removeItem('payOrder')
+    } else {
+      const payload = {
+        userId,
+        productType: draft.productType ?? draft.product_type ?? 3,
+        productId: draft.productId ?? draft.product_id,
+        productName: draft.productName ?? draft.product_name,
+        description: draft.description,
+        quantity: draft.quantity,
+        unitPrice: draft.unitPrice ?? draft.unit_price,
+        totalAmount: draft.totalAmount ?? draft.total_amount,
+        status: 0,
+      }
+      await createOrder(payload)
+      sessionStorage.removeItem('orderDraft')
+    }
     showToast({ message: '支付未完成', position: 'top' })
     router.back()
   } catch (_) {
