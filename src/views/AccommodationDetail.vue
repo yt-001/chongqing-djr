@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { fetchAccommodationById } from '@/api/modules/accommodations.js'
+import { mapFacilitiesToItems } from '@/utils/facilityIcons.js'
 import { processImageData } from '@/utils/imageUtils.js'
 
 const route = useRoute()
@@ -19,15 +20,10 @@ const hostInfo = ref({
   message: '欢迎来到我的小屋！这里每一处角落都是我精心布置的，希望您能感受到重庆的热情与温暖。如果有任何游玩问题，随时问我哦！'
 })
 
-// 模拟设施图标
-const facilities = [
-  { icon: 'wap-home-o', name: '整套房源' },
-  { icon: 'friends-o', name: '宜住2人' },
-  { icon: 'desktop-o', name: '无线网络' },
-  { icon: 'fire-o', name: '24h热水' },
-  { icon: 'flower-o', name: '空调' },
-  { icon: 'tv-o', name: '投影仪' }
-]
+/**
+ * 加载住宿详情（包含设施列表）
+ * @returns {Promise<void>}
+ */
 
 onMounted(() => {
   loadData()
@@ -76,14 +72,19 @@ const typeText = computed(() => {
  */
 const facilityItems = computed(() => {
   const list = detail.value?.facilities || detail.value?.facilityList || []
-  if (Array.isArray(list) && list.length) {
-    return list.map(f => ({
-      icon: f.icon || 'success',
-      name: f.name || f.label || '设施'
-    }))
-  }
-  return facilities
+  return mapFacilitiesToItems(list)
 })
+
+/**
+ * 拨打电话
+ * @param {string} phone
+ */
+function onCall(phone) {
+  if (!phone) return showToast('暂无联系电话')
+  window.location.href = `tel:${phone}`
+}
+
+// 图标匹配逻辑已抽取到 '@/utils/facilityIcons.js'
 
 function onBack() {
   router.back()
@@ -137,10 +138,9 @@ function onBook() {
           
           <div class="tags-row">
             <span class="tag type-tag">{{ typeText }}</span>
-            <div class="rating">
+            <div class="rating" v-if="detail?.rating !== undefined && detail?.rating !== null">
               <van-icon name="star" color="#ff9f43" />
-              <span class="score">{{ detail?.rating || 4.8 }}</span>
-              <span class="comment-count">(128条评价)</span>
+              <span class="score">{{ detail?.rating }}</span>
             </div>
           </div>
 
@@ -148,6 +148,12 @@ function onBook() {
             <van-icon name="location" color="#3f51b5" />
             <span class="address">{{ detail?.location || '重庆市渝中区解放碑' }}</span>
             <span class="map-link">地图 ></span>
+          </div>
+          <div class="meta-row">
+            <span class="capacity">宜住{{ detail?.capacity || 2 }}人</span>
+            <span class="phone" @click="onCall(detail?.contactPhone)">
+              <van-icon name="phone" /> {{ detail?.contactPhone || '暂无电话' }}
+            </span>
           </div>
         </div>
 
@@ -197,6 +203,7 @@ function onBook() {
         <van-action-bar-icon icon="cart-o" text="购物车" />
         <van-action-bar-icon icon="star-o" text="收藏" color="#ff5000" />
         <van-action-bar-button type="warning" text="加入行程" />
+        <van-action-bar-button type="primary" text="联系前台" @click="onCall(detail?.contactPhone)" />
         <van-action-bar-button type="danger" text="立即预定" @click="onBook" />
       </van-action-bar>
     </template>
@@ -334,6 +341,8 @@ function onBook() {
   padding-top: 12px;
   border-top: 1px solid #f5f5f5;
 }
+.meta-row { display: flex; gap: 16px; margin-top: 8px; align-items: center; }
+.meta-row .phone { color: #1890ff; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 .location-row .address {
   flex: 1;
   margin: 0 6px;

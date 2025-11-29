@@ -17,7 +17,9 @@ export default [
   {
     label: '住宿管理', name: 'admin-accommodations-root', icon: 'House',
     children: [
-      { label: '住宿列表', name: 'admin-accommodations' }
+      { label: '住宿列表', name: 'admin-accommodations' },
+      { label: '住宿类型', name: 'admin-accommodation-types' },
+      { label: '住宿设施', name: 'admin-accommodation-facilities' }
     ]
   },
   {

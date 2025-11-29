@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { processImageData } from '@/utils/imageUtils.js'
 import { fetchAccommodationsPage } from '../api/modules/accommodations.js'
+import { fetchAccommodationTypesPage } from '@/api'
 
 const router = useRouter()
 const searchValue = ref('')
@@ -15,13 +16,9 @@ const swipeItems = ref([
   { id: 3, img: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800' },
 ])
 
-// 住宿分类
-const categories = ref([
-  { name: '高端酒店', icon: 'hotel-o', color: '#ff9f43' },
-  { name: '特色民宿', icon: 'shop-o', color: '#1dd1a1' },
-  { name: '青年旅舍', icon: 'friends-o', color: '#ff6b6b' },
-  { name: '客栈公寓', icon: 'home-o', color: '#54a0ff' },
-])
+// 住宿分类（从后端类型接口动态加载）
+const categories = ref([])
+const selectedTypeId = ref(null)
 
 // 列表状态
 const list = ref([])
@@ -36,7 +33,12 @@ const onSearch = (val) => {
 }
 
 const onCategoryClick = (name) => {
-  showToast({ message: `${name} 分类开发中`, position: 'top' })
+  const cat = categories.value.find(c => c.name === name)
+  selectedTypeId.value = cat?.id || null
+  pageNum.value = 1
+  hasMore.value = true
+  list.value = []
+  loadData(false)
 }
 
 /**
@@ -85,6 +87,15 @@ function getTypeText(item) {
   const map = { 1: '酒店', 2: '民宿', 3: '客栈' }
   return map[id] || '住宿'
 }
+
+/**
+ * 拨打电话（tel协议）
+ * @param {string} phone
+ */
+function onCall(phone) {
+  if (!phone) return showToast({ message: '暂无联系电话', position: 'top' })
+  window.location.href = `tel:${phone}`
+}
 // 加载数据
 const loadData = async (isLoadMore = false) => {
   if (isLoadMore) {
@@ -101,7 +112,10 @@ const loadData = async (isLoadMore = false) => {
     const payload = {
       pageNum: pageNum.value,
       pageSize: 10,
-      query: searchValue.value ? { name: searchValue.value } : {}
+      query: {
+        ...(searchValue.value ? { name: searchValue.value } : {}),
+        ...(selectedTypeId.value ? { typeId: selectedTypeId.value } : {})
+      }
     }
     const start = Date.now()
     const res = await fetchAccommodationsPage(payload)
@@ -136,7 +150,13 @@ const handleScroll = () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 加载住宿类型作为分类入口
+  try {
+    const data = await fetchAccommodationTypesPage({ pageNum: 1, pageSize: 10 })
+    const baseColors = ['#ff9f43','#1dd1a1','#ff6b6b','#54a0ff','#8e24aa','#26c6da']
+    categories.value = (data.list || data.records || []).map((t, i) => ({ id: t.id, name: t.name, icon: 'hotel-o', color: baseColors[i % baseColors.length] }))
+  } catch {}
   loadData()
   window.addEventListener('scroll', handleScroll)
 })
@@ -228,11 +248,14 @@ onUnmounted(() => {
           </div>
           <div class="desc">{{ item.description }}</div>
           <div class="bottom">
-            <div class="rating">
+            <div class="rating" v-if="item.rating !== undefined && item.rating !== null">
               <van-icon name="star" color="#ff9f43" />
-              <span>{{ item.rating || 4.8 }}分</span>
+              <span>{{ item.rating }}分</span>
             </div>
-            <van-button size="mini" type="primary" round @click.stop="onCardClick(item.id)">查看详情</van-button>
+            <div class="ops">
+              <van-button size="mini" type="primary" round @click.stop="onCardClick(item.id)">查看详情</van-button>
+              <van-button size="mini" round icon="phone" @click.stop="onCall(item.contactPhone)">联系前台</van-button>
+            </div>
           </div>
         </div>
       </div>
@@ -419,6 +442,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
 }
+.bottom .ops { display: flex; gap: 8px; }
 .rating {
   display: flex;
   align-items: center;
