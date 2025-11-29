@@ -58,11 +58,31 @@ const images = computed(() => {
   return imageUrls.length ? imageUrls : ['https://img.yzcdn.cn/vant/apple-1.jpg']
 })
 
+/**
+ * 住宿类型显示（兼容后端字段变化）
+ * @returns {string}
+ */
 const typeText = computed(() => {
-  const t = detail.value?.type
-  if (t === 0) return '酒店'
-  if (t === 1) return '民宿'
-  return '客栈'
+  const name = detail.value?.typeName || detail.value?.type?.name || detail.value?.type?.label
+  if (name) return name
+  const id = detail.value?.typeId ?? detail.value?.type_id
+  const map = { 1: '酒店', 2: '民宿', 3: '客栈' }
+  return map[id] || '住宿'
+})
+
+/**
+ * 设施列表（优先使用后端返回的设施数据）
+ * @returns {{icon:string,name:string}[]}
+ */
+const facilityItems = computed(() => {
+  const list = detail.value?.facilities || detail.value?.facilityList || []
+  if (Array.isArray(list) && list.length) {
+    return list.map(f => ({
+      icon: f.icon || 'success',
+      name: f.name || f.label || '设施'
+    }))
+  }
+  return facilities
 })
 
 function onBack() {
@@ -152,7 +172,7 @@ function onBook() {
         <div class="card facilities-card">
           <div class="card-title">设施服务</div>
           <div class="facilities-grid">
-            <div class="facility-item" v-for="(item, i) in facilities" :key="i">
+            <div class="facility-item" v-for="(item, i) in facilityItems" :key="i">
               <van-icon :name="item.icon" size="24" color="#666" />
               <span>{{ item.name }}</span>
             </div>

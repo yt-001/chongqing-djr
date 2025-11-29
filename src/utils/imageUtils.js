@@ -14,30 +14,32 @@ export function processImageData(imageData) {
     coverUrl: '',
     imageUrls: []
   }
-  
-  // 处理封面图片 - 按原方案使用前端 /images 目录
+
+  const isAbsolute = (url) => /^https?:\/\//.test(url) || url.startsWith('/')
+
+  // 处理封面图片：后端返回为完整URL时直接使用，否则走 /images 前缀
   if (imageData.coverImage) {
-    const coverFileName = String(imageData.coverImage).replace(/^\/images\//, '')
-    result.coverUrl = `/images/${coverFileName}`
+    const raw = String(imageData.coverImage)
+    result.coverUrl = isAbsolute(raw) ? raw : `/images/${raw.replace(/^\/images\//, '')}`
   }
-  
-  // 处理图片数组
+
+  // 处理图片数组：支持数组或JSON字符串，项为完整URL时不改写
   if (imageData.images) {
     try {
       const imageArray = Array.isArray(imageData.images) ? imageData.images : JSON.parse(imageData.images)
       if (Array.isArray(imageArray)) {
         result.imageUrls = imageArray
           .filter(Boolean)
-          .map(img => {
-            const fileName = String(img).replace(/^\/images\//, '')
-            return `/images/${fileName}`
+          .map((img) => {
+            const raw = String(img)
+            return isAbsolute(raw) ? raw : `/images/${raw.replace(/^\/images\//, '')}`
           })
       }
     } catch (error) {
       console.error('解析图片数组失败:', error)
     }
   }
-  
+
   return result
 }
 

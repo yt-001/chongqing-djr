@@ -73,6 +73,18 @@ function resolveImageUrl(cover) {
   return processImageData({ coverImage: cover, images: '[]' }).coverUrl || ''
 }
 
+/**
+ * 获取住宿类型文本（兼容后端字段变化）
+ * @param {any} item
+ * @returns {string}
+ */
+function getTypeText(item) {
+  const name = item?.typeName
+  if (name) return name
+  const id = item?.typeId ?? item?.type_id
+  const map = { 1: '酒店', 2: '民宿', 3: '客栈' }
+  return map[id] || '住宿'
+}
 // 加载数据
 const loadData = async (isLoadMore = false) => {
   if (isLoadMore) {
@@ -211,7 +223,7 @@ onUnmounted(() => {
         <div class="card-content">
           <div class="title">{{ item.name }}</div>
           <div class="tags">
-            <span class="tag type">{{ item.type === 0 ? '酒店' : (item.type === 1 ? '民宿' : '客栈') }}</span>
+            <span class="tag type">{{ getTypeText(item) }}</span>
             <span class="tag location">{{ item.location }}</span>
           </div>
           <div class="desc">{{ item.description }}</div>
