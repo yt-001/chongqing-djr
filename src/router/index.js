@@ -47,6 +47,7 @@ const router = createRouter({
         { path: 'dashboard', name: 'admin-dashboard', component: () => import('@/views/admin/AdminDashboard.vue'), meta: { title: '仪表盘', hideTabbar: true } },
         { path: 'attractions', name: 'admin-attractions', component: () => import('@/views/admin/AdminAttractions.vue'), meta: { title: '景点管理', hideTabbar: true } },
         { path: 'popular-attractions', name: 'admin-popular-attractions', component: () => import('@/views/admin/AdminPopularAttractions.vue'), meta: { title: '热门景点', hideTabbar: true } },
+        { path: 'guide-map', name: 'admin-guide-map', component: () => import('@/views/admin/AdminGuideMap.vue'), meta: { title: '向导图制作', hideTabbar: true } },
         { path: 'restaurants', name: 'admin-restaurants', component: () => import('@/views/admin/AdminRestaurants.vue'), meta: { title: '餐饮管理', hideTabbar: true } },
         { path: 'accommodations', name: 'admin-accommodations', component: () => import('@/views/admin/AdminAccommodations.vue'), meta: { title: '住宿管理', hideTabbar: true } },
         { path: 'accommodation-types', name: 'admin-accommodation-types', component: () => import('@/views/admin/AdminAccommodationTypes.vue'), meta: { title: '住宿类型', hideTabbar: true } },

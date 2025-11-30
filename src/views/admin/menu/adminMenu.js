@@ -6,7 +6,8 @@ export default [
     label: '景点管理', name: 'admin-attractions-root', icon: 'Location',
     children: [
       { label: '景点列表', name: 'admin-attractions' },
-      { label: '热门景点', name: 'admin-popular-attractions' }
+      { label: '热门景点', name: 'admin-popular-attractions' },
+      { label: '向导图制作', name: 'admin-guide-map' }
     ]
   },
   {
