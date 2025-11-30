@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { showToast, showDialog } from 'vant'
 import { loadQQMap } from '@/utils/qqMapLoader.js'
+import { fetchPopularAttractionsForMap, fetchPopularAttractions } from '@/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -10,23 +11,23 @@ const mapContainer = ref(null)
 const mapInstance = ref(null)
 const loading = ref(true)
 const currentMarker = ref(null) // 当前选中的标记
-const locationInfo = ref(null)  // 底部卡片信息
+const locationInfo = ref(null)  // 信息窗体数据
+const infoWindowPos = ref({ x: -999, y: -999 }) // 信息窗体屏幕坐标
 
 // 腾讯地图 Key
 const QQ_MAP_KEY = 'FSVBZ-V6BK3-CHU3D-RZZQN-VGFIS-PXFW6'
 
-// 示例景点数据（重庆热门景点，坐标需为 GCJ-02）
-const landmarks = ref([
-  { id: 1, name: '洪崖洞', position: [29.561737, 106.579179], address: '重庆市渝中区嘉陵江滨江路88号' },
-  { id: 2, name: '解放碑', position: [29.557078, 106.577128], address: '重庆市渝中区解放碑步行街' },
-  { id: 3, name: '李子坝轻轨站', position: [29.553912, 106.548486], address: '重庆市渝中区李子坝正街' },
-  { id: 4, name: '磁器口古镇', position: [29.579819, 106.448276], address: '重庆市沙坪坝区磁器口' },
-])
+// 热门景点列表（从接口拉取，坐标需为 GCJ-02）
+const landmarks = ref([])
+
+// 全局变量存储 LatLng 构造函数，以便在 updatePos 中使用
+let TMapLatLng = null
 
 // 初始化地图
 async function initMap() {
   try {
     const TMap = await loadQQMap(QQ_MAP_KEY)
+    TMapLatLng = TMap.LatLng // 保存引用
     
     // 注意：腾讯地图 GL 的 LatLng 构造函数是 (lat, lng)，这与高德/百度数组 [lng, lat] 不同
     // 中心点：重庆
@@ -70,7 +71,29 @@ async function initMap() {
       mapInstance.value.setZoom(16)
     }
 
-    // 2. 添加预置景点
+    // 2. 拉取热门景点并添加到标记集合（优先使用完整列表以便携带 attractionId）
+    try {
+      const fullList = await fetchPopularAttractions()
+      if (Array.isArray(fullList) && fullList.length) {
+        landmarks.value = fullList.map((it) => ({
+          id: it.id,
+          name: it.name,
+          position: [Number(it.latitude), Number(it.longitude)],
+          address: it.description || '',
+          attractionId: it.attractionId
+        }))
+      } else {
+        const mapList = await fetchPopularAttractionsForMap()
+        landmarks.value = (Array.isArray(mapList) ? mapList : []).map((it, idx) => ({
+          id: idx + 1,
+          name: it.name,
+          position: [Number(it.latitude), Number(it.longitude)],
+          address: it.description || '',
+          attractionId: undefined
+        }))
+      }
+    } catch (_) {}
+
     landmarks.value.forEach(item => {
       // 简单的去重逻辑：如果和目标点非常近则不添加
       if (targetLatLng && Math.abs(item.position[0] - targetLatLng.lat) < 0.0001 && Math.abs(item.position[1] - targetLatLng.lng) < 0.0001) {
@@ -80,9 +103,25 @@ async function initMap() {
         id: String(item.id),
         styleId: 'normal',
         position: new TMap.LatLng(item.position[0], item.position[1]),
-        properties: { title: item.name, address: item.address, isTarget: false }
+        properties: { title: item.name, address: item.address, isTarget: false, attractionId: item.attractionId }
       })
     })
+
+    // 如果未指定目标点，且存在热门景点，则将地图中心定位到第一个热门点并显示默认卡片
+    if (!targetLatLng && landmarks.value.length > 0) {
+      const first = landmarks.value[0]
+      const centerLatLng = new TMap.LatLng(first.position[0], first.position[1])
+      mapInstance.value.setCenter(centerLatLng)
+      mapInstance.value.setZoom(14)
+      locationInfo.value = {
+        name: first.name,
+        address: first.address,
+        lat: first.position[0],
+        lng: first.position[1],
+        attractionId: first.attractionId
+      }
+      updatePos()
+    }
 
     // 创建标记图层
     const markerLayer = new TMap.MultiMarker({
@@ -93,9 +132,7 @@ async function initMap() {
           width: 30, 
           height: 40, 
           anchor: { x: 15, y: 40 },
-          src: 'https://mapapi.qq.com/web/lbs/javascriptGL/demo/img/markerDefault.png', // 默认蓝色
-          // 腾讯地图 GL 默认图标较少，这里用 filter 变色或使用自定义图片
-          // 实际项目中建议替换为你的红色图标 URL
+          src: 'https://mapapi.qq.com/web/lbs/javascriptGL/demo/img/markerDefault.png', 
         }),
         // 普通点样式（蓝色）
         normal: new TMap.MarkerStyle({ 
@@ -111,16 +148,46 @@ async function initMap() {
     // 监听标记点击事件
     markerLayer.on('click', (evt) => {
       const props = evt.geometry.properties
-      const lat = evt.geometry.position.lat
-      const lng = evt.geometry.position.lng
+      const position = evt.geometry.position
       
+      // 更新当前选中信息
       locationInfo.value = {
         name: props.title,
         address: props.address,
-        position: [lat, lng]
+        lat: position.lat,
+        lng: position.lng,
+        attractionId: props.attractionId
       }
+
+      // 计算屏幕坐标并显示
+      updatePos()
       
-      mapInstance.value.easeTo({ center: evt.geometry.position, zoom: 16 }, { duration: 500 })
+      // 移动地图中心
+      mapInstance.value.easeTo({ center: position, zoom: 16 }, { duration: 500 })
+    })
+
+    // 监听地图各种变化事件，更新信息窗体位置
+    // 使用 requestAnimationFrame 优化性能
+    const handleMapChange = () => {
+      if (locationInfo.value) {
+        requestAnimationFrame(updatePos)
+      }
+    }
+
+    mapInstance.value.on('camera-change', handleMapChange)
+    mapInstance.value.on('pan', handleMapChange)
+    mapInstance.value.on('rotate', handleMapChange)
+    mapInstance.value.on('pitch', handleMapChange)
+    mapInstance.value.on('idle', handleMapChange) // 确保动画结束后位置正确
+
+    // 点击地图空白处关闭信息窗体
+    mapInstance.value.on('click', () => {
+      // 这里需要判断是否点击的是标记，但 MultiMarker 的 click 事件会先触发
+      // 简单处理：延迟一点，如果 marker click 触发了，会重新设置 locationInfo
+      setTimeout(() => {
+        // 实际上更好的做法是：在 marker click 里阻止冒泡或者设置一个标志位
+        // 但 TMap 事件模型比较简单，这里不做复杂处理，依靠 markerLayer 的 click 覆盖
+      }, 0)
     })
 
     // 如果没有目标点，尝试定位
@@ -151,26 +218,49 @@ async function initMap() {
   }
 }
 
-// 唤起外部导航
-function openNavigation() {
-  if (!locationInfo.value) return
+// 更新信息窗体位置（将地图坐标转换为屏幕坐标）
+function updatePos() {
+  if (!mapInstance.value || !locationInfo.value || !TMapLatLng) return
   
-  const { name, position } = locationInfo.value
-  // 腾讯地图 URI Scheme: qqmap://map/marker?marker=coord:lat,lng;title:name;addr:address&referer=myapp
-  // 网页端跳转: https://apis.map.qq.com/uri/v1/marker?marker=coord:lat,lng;title:name;addr:address&referer=myapp
+  const lat = Number(locationInfo.value.lat)
+  const lng = Number(locationInfo.value.lng)
+  const latLng = new TMapLatLng(lat, lng)
   
-  const lat = position[0]
-  const lng = position[1]
+  const pos = mapInstance.value.projectToContainer(latLng)
   
-  const url = `https://apis.map.qq.com/uri/v1/marker?marker=coord:${lat},${lng};title:${encodeURIComponent(name)};addr:${encodeURIComponent(locationInfo.value.address)}&referer=chongqing_tour`
-  
-  // 使用新窗口打开，以便用户可以返回
-  window.open(url, '_blank')
+  // 偏移量：让窗体显示在标记上方
+  // 修正：如果 pos.x/y 出现 NaN 或异常值，不更新
+  if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+    infoWindowPos.value = {
+      x: pos.x,
+      y: pos.y - 45 // 向上偏移 45px
+    }
+  }
 }
 
 // 关闭底部卡片
 function closeCard() {
   locationInfo.value = null
+}
+
+// 唤起外部导航（带参数）
+function openNavigationWithParams(name, address, lat, lng) {
+  // 腾讯地图 URI Scheme: qqmap://map/marker?marker=coord:lat,lng;title:name;addr:address&referer=myapp
+  // 网页端跳转: https://apis.map.qq.com/uri/v1/marker?marker=coord:lat,lng;title:name;addr:address&referer=myapp
+  
+  const url = `https://apis.map.qq.com/uri/v1/marker?marker=coord:${lat},${lng};title:${encodeURIComponent(name)};addr:${encodeURIComponent(address)}&referer=chongqing_tour`
+  
+  // 使用新窗口打开，以便用户可以返回
+  window.open(url, '_blank')
+}
+
+/**
+ * 跳转到景点详情
+ * @param {number|string|undefined} attractionId
+ */
+function goViewAttraction(attractionId) {
+  if (!attractionId) return
+  router.push({ name: 'scenic-detail', params: { id: attractionId } })
 }
 
 onMounted(() => {
@@ -202,27 +292,111 @@ onUnmounted(() => {
       <van-loading color="#1989fa" vertical>地图加载中...</van-loading>
     </div>
 
-    <!-- 底部信息卡片（选中景点时显示） -->
-    <transition name="slide-up">
-      <div v-if="locationInfo" class="info-card">
-        <div class="card-header">
-          <h3>{{ locationInfo.name }}</h3>
-          <van-icon name="cross" class="close-icon" @click="closeCard" />
-        </div>
-        <p class="address">
-          <van-icon name="location-o" /> {{ locationInfo.address }}
-        </p>
-        <div class="actions">
-          <van-button type="primary" round block icon="guide-o" @click="openNavigation">
-            去这里（导航）
-          </van-button>
-        </div>
+    <!-- 自定义 Vue 信息窗体 (跟随地图移动) -->
+    <div 
+      v-if="locationInfo" 
+      class="vue-info-window"
+      :style="{ left: infoWindowPos.x + 'px', top: infoWindowPos.y + 'px' }"
+    >
+      <div class="info-header">
+        <h3>{{ locationInfo.name }}</h3>
+        <van-icon name="cross" class="close-icon" @click.stop="closeCard" />
       </div>
-    </transition>
+      <div class="info-body">
+        <p><van-icon name="location-o" /> {{ locationInfo.address }}</p>
+      </div>
+      <div class="info-footer">
+        <van-button 
+          size="small" 
+          type="primary" 
+          round 
+          block 
+          icon="guide-o" 
+          @click.stop="openNavigationWithParams(locationInfo.name, locationInfo.address, locationInfo.lat, locationInfo.lng)"
+        >
+          去这里 (导航)
+        </van-button>
+        <van-button 
+          v-if="locationInfo?.attractionId"
+          size="small" 
+          type="default" 
+          round 
+          block 
+          style="margin-top:8px" 
+          icon="search" 
+          @click.stop="goViewAttraction(locationInfo.attractionId)"
+        >
+          查看景点
+        </van-button>
+      </div>
+      <!-- 小三角 -->
+      <div class="arrow"></div>
+    </div>
   </div>
 </template>
 
 <style scoped>
+/* Vue 实现的信息窗体 */
+.vue-info-window {
+  position: absolute;
+  transform: translate(-50%, -100%); /* 居中并显示在上方 */
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  width: 240px;
+  z-index: 100;
+  pointer-events: auto; /* 确保可以点击 */
+}
+
+.info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.info-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.close-icon {
+  font-size: 20px;
+  color: #999;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.info-body {
+  margin-bottom: 12px;
+}
+
+.info-body p {
+  margin: 0;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.4;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.arrow {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  box-shadow: 2px 2px 4px rgba(0,0,0,0.05); /* 仅显示下方的阴影 */
+  z-index: -1;
+}
+
 .map-page {
   position: relative;
   width: 100%;
@@ -296,63 +470,5 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-/* 底部信息卡片 */
-.info-card {
-  position: absolute;
-  bottom: 24px;
-  left: 16px;
-  right: 16px;
-  background: #fff;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  z-index: 10;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.card-header h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #333;
-}
-
-.close-icon {
-  font-size: 20px;
-  color: #999;
-  padding: 4px;
-}
-
-.address {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.actions {
-  display: flex;
-  gap: 12px;
-}
-
-/* 动画 */
-.slide-up-enter-active,
-.slide-up-leave-active {
-  transition: all 0.3s ease;
-}
-
-.slide-up-enter-from,
-.slide-up-leave-to {
-  transform: translateY(100%);
-  opacity: 0;
 }
 </style>

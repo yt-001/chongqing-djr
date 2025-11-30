@@ -11,6 +11,7 @@ TRUNCATE TABLE users;
 TRUNCATE TABLE comments;
 TRUNCATE TABLE favorites;
 TRUNCATE TABLE orders;
+TRUNCATE TABLE popular_attractions;
 
 INSERT INTO accommodation_types (name, description) VALUES
 ('酒店','标准化住宿服务，设施完善'),
@@ -107,6 +108,13 @@ INSERT INTO attractions (name, description, location, latitude, longitude, cover
 ('桂湖温泉中心','温泉泡浴与康养', '梁平区桂湖路', 30.6710, 107.8158, 'https://example.com/img/att_wq.jpg', '["https://example.com/img/att_wq.jpg"]', '10:00-22:00', 98.00, '023-88881006'),
 ('合兴田园综合体','农耕体验与采摘', '梁平区合兴镇', 30.6584, 107.8401, 'https://example.com/img/att_hx.jpg', '["https://example.com/img/att_hx.jpg"]', '9:00-18:00', 20.00, '023-88881007'),
 ('梁平木版年画馆','非遗展陈与互动体验', '梁平区文化街', 30.6755, 107.8066, 'https://example.com/img/att_nh.jpg', '["https://example.com/img/att_nh.jpg"]', '9:00-17:30', 15.00, '023-88881008');
+
+-- 热门景点（示例数据）
+INSERT INTO popular_attractions (attraction_id, name, description, latitude, longitude) VALUES
+(1, '双桂湖国家湿地公园', '湖泊湿地景观，步道环湖适合散步', 30.6768, 107.8025),
+(2, '明达古镇', '传统街巷与古建筑保存完好', 30.6901, 107.7802),
+(3, '竹海景区', '大片竹林，负氧离子丰富', 30.7002, 107.8204),
+(5, '云岭观景台', '俯瞰城区与湖景', 30.6689, 107.7999);
 
 INSERT INTO intangible_culture (name, description, type, inheritor, cover_image, images) VALUES
 ('梁平木版年画','色彩艳丽、造型夸张的地方传统美术','传统美术','徐家辉','https://example.com/img/nh_lp.jpg','["https://example.com/img/nh_lp.jpg"]'),

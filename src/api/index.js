@@ -14,3 +14,5 @@ export { fetchAdminOrdersPage } from './modules/admin/orders.js' // 管理端订
 export * from './modules/admin/users.js'
 export * from './modules/favorites.js' // 收藏模块
 export * from './modules/comments.js' // 评论模块
+export * from './modules/popularAttractions.js' // 热门景点
+export * from './modules/admin/popularAttractions.js' // 管理端热门景点

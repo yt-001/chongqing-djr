@@ -33,10 +33,11 @@ export async function request(url, options = {}) {
       error.data = raw
       throw error
     }
-    // 统一 ApiResponse 处理：只要包含 { code, msg } 就按业务码校验
-    if (raw && typeof raw === 'object' && 'code' in raw && 'msg' in raw) {
+    // 统一 ApiResponse 处理：只要包含 { code, msg/message } 就按业务码校验
+    if (raw && typeof raw === 'object' && 'code' in raw && ('msg' in raw || 'message' in raw)) {
+      const bizMsg = raw.msg || raw.message
       if (raw.code !== 200) {
-        const error = new Error(raw.msg || '接口返回错误')
+        const error = new Error(bizMsg || '接口返回错误')
         error.code = raw.code
         error.data = raw
         throw error

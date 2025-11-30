@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS accommodations;
 DROP TABLE IF EXISTS accommodation_facilities;
 DROP TABLE IF EXISTS accommodation_types;
 DROP TABLE IF EXISTS attractions;
+DROP TABLE IF EXISTS popular_attractions;
 DROP TABLE IF EXISTS intangible_culture;
 DROP TABLE IF EXISTS restaurants;
 DROP TABLE IF EXISTS users;
@@ -90,6 +91,23 @@ CREATE TABLE attractions
 COMMENT '景点表' COLLATE = utf8mb4_unicode_ci;
 
 CREATE INDEX idx_attractions_location ON attractions (location);
+
+-- 热门景点表（仅保留核心字段：名称、描述、经纬度）
+CREATE TABLE popular_attractions
+(
+    id             INT AUTO_INCREMENT PRIMARY KEY,
+    attraction_id  INT NOT NULL COMMENT '对应景点ID',
+    name           VARCHAR(100) NOT NULL COMMENT '热门景点名称',
+    description    TEXT NULL COMMENT '描述',
+    latitude       DECIMAL(10, 8) NOT NULL COMMENT '纬度',
+    longitude      DECIMAL(11, 8) NOT NULL COMMENT '经度',
+    create_time    DATETIME DEFAULT CURRENT_TIMESTAMP NULL,
+    update_time    DATETIME DEFAULT CURRENT_TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP
+)
+COMMENT '热门景点表' COLLATE = utf8mb4_unicode_ci;
+
+CREATE INDEX idx_popular_attractions_name ON popular_attractions (name);
+CREATE INDEX idx_popular_attractions_attraction_id ON popular_attractions (attraction_id);
 
 CREATE TABLE intangible_culture
 (
@@ -214,4 +232,3 @@ CREATE INDEX idx_orders_create_time ON orders (create_time);
 CREATE INDEX idx_orders_product     ON orders (product_type, product_id);
 CREATE INDEX idx_orders_status      ON orders (status);
 CREATE INDEX idx_orders_user_id     ON orders (user_id);
-
