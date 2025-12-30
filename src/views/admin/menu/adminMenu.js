@@ -7,7 +7,8 @@ export default [
     children: [
       { label: '景点列表', name: 'admin-attractions' },
       { label: '热门景点', name: 'admin-popular-attractions' },
-      { label: '向导图制作', name: 'admin-guide-map' }
+      { label: '向导图制作', name: 'admin-guide-map' },
+      { label: '向导图库', name: 'admin-guide-map-gallery' }
     ]
   },
   {

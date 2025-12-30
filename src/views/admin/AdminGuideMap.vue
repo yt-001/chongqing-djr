@@ -194,11 +194,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, Delete, Location, Link } from '@element-plus/icons-vue'
 import { fetchPopularAttractionCandidatesPage } from '@/api'
 import { loadQQMap } from '@/utils/qqMapLoader.js'
+
+const router = useRouter()
 
 // 腾讯地图 Key
 const QQ_MAP_KEY = 'FSVBZ-V6BK3-CHU3D-RZZQN-VGFIS-PXFW6'
@@ -246,8 +249,23 @@ const canvasStyle = computed(() => ({
 }))
 
 onMounted(() => {
+  // 恢复之前保存的标记点
+  try {
+    const savedData = sessionStorage.getItem('guideMapData')
+    if (savedData) {
+      geoMarkers.value = JSON.parse(savedData)
+    }
+  } catch (e) {
+    console.error('Failed to restore markers:', e)
+  }
+
   initMap()
 })
+
+// 监听标记点变化，自动保存到缓存
+watch(geoMarkers, (newVal) => {
+  sessionStorage.setItem('guideMapData', JSON.stringify(newVal))
+}, { deep: true })
 
 onUnmounted(() => {
   if (mapInstance.value && clickHandler) {
@@ -325,6 +343,11 @@ async function initMap() {
 
     // 初始化自定义 DOM 标记层监听
     initDomMarkerOverlay()
+    
+    // 如果有恢复的标记点，需要更新图层
+    if (geoMarkers.value.length > 0) {
+      updateMarkerLayer()
+    }
 
   } catch (e) {
     console.error('地图加载失败', e)
@@ -466,9 +489,30 @@ function handleMapRightClick(evt) {
   }
   // 尝试记录POI名称（若右键事件包含poi）
   try {
-    const poiName = evt?.poi?.name || ''
+    const poiName = evt?.poi?.name
+    let finalName = ''
+    
+    // 1. 优先使用右键直接获取的POI名称
     if (poiName) {
-      mapClickInfo.value.name = poiName
+      finalName = poiName
+    } else {
+      // 2. 如果右键没有POI信息，检查是否离上一次选中的点很近 (约50米内)
+      // 这样可以支持：先左键选中POI，然后右键添加
+      const lastInfo = mapClickInfo.value
+      const isClose = Math.abs(latLng.getLat() - lastInfo.lat) < 0.0005 && Math.abs(latLng.getLng() - lastInfo.lng) < 0.0005
+      
+      if (isClose && lastInfo.name && !lastInfo.name.startsWith('自定义位置')) {
+        finalName = lastInfo.name
+      } else {
+        // 3. 既无POI又离得远，则视为新位置
+        finalName = `自定义位置 (${latLng.getLat().toFixed(6)}, ${latLng.getLng().toFixed(6)})`
+      }
+    }
+    
+    mapClickInfo.value = {
+      lat: latLng.getLat(),
+      lng: latLng.getLng(),
+      name: finalName
     }
   } catch {}
 }
@@ -489,25 +533,22 @@ function onContextSetMarker() {
   
   const { lat, lng } = contextMenu.value
   
-  // 重复检查：检查是否有距离极近的标记点 (阈值约10米)
+  // 重复检查：由于手动点击可能有微小误差，这里放宽阈值 (约100米范围)
+  // 用户反馈需要"保留一位小数"级别的粗略控制，这里设定为 0.001 (约100米)，避免过于精细
   const isDuplicate = geoMarkers.value.some(marker => 
-    Math.abs(marker.lat - lat) < 0.0001 && Math.abs(marker.lng - lng) < 0.0001
+    Math.abs(marker.lat - lat) < 0.001 && Math.abs(marker.lng - lng) < 0.001
   )
 
   if (isDuplicate) {
-    ElMessage.warning('该地点已添加标记，请勿重复添加')
+    ElMessage.warning('该区域已存在标记，请勿重复添加')
     closeContextMenu()
     return
   }
 
   const id = `marker-${Date.now()}`
   // 必须具备POI名称，否则不允许添加
-  const markerName = mapClickInfo.value.name
-  if (!markerName) {
-    ElMessage.warning('未获取地点名称，无法添加标记')
-    closeContextMenu()
-    return
-  }
+  // 如果没有POI名称，使用默认名称
+  const markerName = mapClickInfo.value.name || `自定义点位 (${geoMarkers.value.length + 1})`
   
   // 添加到 geoMarkers 状态
   geoMarkers.value.push({
@@ -680,15 +721,20 @@ function removeMarker(index) {
 }
 
 function onSave() {
-  if (!selectedAttractionId.value) return ElMessage.warning('请选择景点')
-  if (!mapImageUrl.value) return ElMessage.warning('请上传手绘图')
-  
-  console.log('Saving:', {
-    attractionId: selectedAttractionId.value,
-    image: 'Base64 data...', 
-    markers: markers.value
-  })
-  ElMessage.success('保存成功（模拟）')
+  // 检查是否有标记点
+  if (geoMarkers.value.length === 0) {
+    return ElMessage.warning('当前没有标记任何地点，无法进入工作流页面')
+  }
+
+  // 保存数据到 sessionStorage 以便在工作流页面读取
+  try {
+    sessionStorage.setItem('guideMapData', JSON.stringify(geoMarkers.value))
+    ElMessage.success('保存成功，正在跳转至工作流页面...')
+    router.push({ name: 'admin-guide-map-workflow' })
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('保存数据失败')
+  }
 }
 </script>
 

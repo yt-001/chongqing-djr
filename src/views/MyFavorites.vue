@@ -29,7 +29,7 @@ const pageSize = 10
 watch(activeTab, (newVal) => {
   const tab = tabs.value[newVal]
   if (tab.list.length === 0 && !tab.finished && !tab.loading) {
-    onLoad()
+    onLoad(newVal)
   }
 })
 
@@ -37,16 +37,16 @@ watch(activeTab, (newVal) => {
 onMounted(() => {
   const tab = tabs.value[activeTab.value]
   if (tab.list.length === 0 && !tab.finished && !tab.loading) {
-    onLoad()
+    onLoad(activeTab.value)
   }
 })
 
 /**
  * 加载数据（需登录，分页查询收藏）
  */
-async function onLoad() {
-  const tabIndex = activeTab.value
+async function onLoad(tabIndex = activeTab.value) {
   const tab = tabs.value[tabIndex]
+  if (!tab) return
   
   // 登录拦截：未登录不发起请求
   if (!userStore.isLoggedIn) {
@@ -197,7 +197,7 @@ function remove(item) {
           v-model:loading="tab.loading"
           :finished="tab.finished"
           finished-text="没有更多了"
-          @load="onLoad"
+          @load="() => onLoad(tab.id)"
           class="tab-content"
         >
           <div v-if="tab.list.length === 0 && tab.finished" class="empty-state">
