@@ -7,7 +7,7 @@
       </div>
       <div class="right-tools">
         <el-button @click="tempSaveWorkflow">暂存</el-button>
-        <el-button type="primary" @click="saveWorkflow">保存工作流</el-button>
+        <el-button type="primary" @click="saveWorkflow">保存旅游路线</el-button>
         <el-button @click="clearConnections">清空连线</el-button>
       </div>
     </div>
@@ -129,6 +129,74 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 保存旅游路线弹窗 -->
+    <el-dialog v-model="saveDialog.visible" title="保存旅游路线" width="680px" destroy-on-close>
+      <div class="save-dialog-body">
+        <div class="form-left">
+          <el-form label-width="80px" :model="saveDialog.form" class="save-form">
+            <el-form-item label="路线名称" required>
+              <el-input v-model="saveDialog.form.name" maxlength="100" show-word-limit placeholder="请输入路线名称" />
+            </el-form-item>
+            <el-form-item label="预估距离">
+              <el-input
+                v-model.number="saveDialog.form.totalDistance"
+                placeholder="公里数"
+                type="number"
+                min="0"
+              >
+                <template #append>km</template>
+              </el-input>
+            </el-form-item>
+            <el-form-item label="预估时长">
+              <el-input
+                v-model.number="saveDialog.form.totalDuration"
+                placeholder="分钟数"
+                type="number"
+                min="0"
+              >
+                <template #append>min</template>
+              </el-input>
+            </el-form-item>
+            <el-form-item label="路线描述">
+              <el-input
+                v-model="saveDialog.form.description"
+                type="textarea"
+                :rows="4"
+                maxlength="500"
+                show-word-limit
+                placeholder="请输入路线简介，方便在图库中展示"
+              />
+            </el-form-item>
+          </el-form>
+        </div>
+        <div class="form-right">
+          <div class="upload-container" @click="triggerUpload">
+            <div v-if="saveDialog.previewUrl || saveDialog.form.coverImage" class="preview-wrapper">
+              <img :src="saveDialog.previewUrl || saveDialog.form.coverImage" class="cover-preview" />
+              <div class="mask">
+                <el-icon class="icon"><Plus /></el-icon>
+                <span>更换封面</span>
+              </div>
+              <div class="close-btn" @click.stop="removeCover">
+                <el-icon><Close /></el-icon>
+              </div>
+            </div>
+            <div v-else class="upload-placeholder">
+              <el-icon class="upload-icon"><Plus /></el-icon>
+              <span class="upload-text">上传封面图</span>
+            </div>
+            <input ref="fileInputRef" type="file" accept="image/*" class="hidden-input" @change="onFileChange" />
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="saveDialog.visible = false" :disabled="saveDialog.loading">取消</el-button>
+          <el-button type="primary" @click="confirmSaveRoute" :loading="saveDialog.loading">保存</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -136,18 +204,34 @@
 import { ref, onMounted, reactive, watch, computed, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, Location, InfoFilled } from '@element-plus/icons-vue'
-import { fetchGuideRouteDetail, saveGuideRouteWorkflow } from '@/api'
+import { ArrowLeft, Location, InfoFilled, Plus, Close } from '@element-plus/icons-vue'
+import { fetchGuideRouteDetail, saveGuideRouteWorkflow, createGuideRoute, createGuideRouteDraft } from '@/api'
+import { uploadSingleImage } from '@/api/modules/upload'
 
 const router = useRouter()
 const route = useRoute()
 const canvasRef = ref(null)
+const fileInputRef = ref(null)
 
 const nodes = ref([])
 const edges = ref([])
 
 const loading = ref(false)
 const originalState = ref('')
+
+const saveDialog = reactive({
+  visible: false,
+  loading: false,
+  uploadFile: null,
+  previewUrl: '',
+  form: {
+    name: '',
+    description: '',
+    coverImage: '',
+    totalDistance: null,
+    totalDuration: null
+  }
+})
 
 const serializeState = () => JSON.stringify({
   nodes: nodes.value,
@@ -363,16 +447,52 @@ const confirmLoadDraft = (saved) => {
   return true
 }
 
-const tempSaveWorkflow = () => {
+const tempSaveWorkflow = async () => {
+  if (!nodes.value.length) {
+    ElMessage.warning('当前没有任何节点，无法暂存')
+    return
+  }
+  const payload = buildWorkflowPayload()
+  const currentRouteId = route.query.routeId
   try {
-    const state = {
-      nodes: nodes.value,
-      edges: edges.value
+    if (currentRouteId) {
+      await saveGuideRouteWorkflow(currentRouteId, payload)
+      ElMessage.success('工作流已暂存')
+      markSaved()
+      return
     }
-    sessionStorage.setItem('guideMapWorkflowState', JSON.stringify(state))
-    ElMessage.success('工作流已暂存')
+
+    let draftName = ''
+    try {
+      const { value, action } = await ElMessageBox.prompt(
+        '可以为当前草稿起一个名称（可留空，稍后再填写）',
+        '暂存旅游路线',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '暂不命名',
+          distinguishCancelAndClose: true,
+          inputPlaceholder: '例如：解放碑夜游草稿'
+        }
+      )
+      if (action === 'confirm' && value) {
+        draftName = value.trim()
+      } else if (action === 'close') {
+        return
+      }
+    } catch {
+    }
+
+    const newId = await createGuideRouteDraft({ name: draftName })
+    if (!newId) {
+      throw new Error('创建草稿路线失败，未返回ID')
+    }
+    await saveGuideRouteWorkflow(newId, payload)
     markSaved()
+    ElMessage.success('工作流已暂存')
+    const currentQuery = { ...route.query, routeId: newId }
+    router.replace({ name: route.name, query: currentQuery })
   } catch (e) {
+    console.error(e)
     ElMessage.error('暂存失败')
   }
 }
@@ -606,14 +726,26 @@ const clearConnections = () => {
 const saveWorkflow = async () => {
   const routeId = route.query.routeId
   if (!routeId) {
-    ElMessage.warning('当前路线未关联后端ID，暂不支持保存到数据库')
+    if (!nodes.value.length) {
+      ElMessage.warning('当前没有任何节点，无法保存旅游路线')
+      return
+    }
+    saveDialog.visible = true
     return
   }
+  await doSaveWorkflow(routeId)
+}
+
+const buildWorkflowPayload = () => {
   const payload = {
     points: nodes.value.map(node => ({
-      id: node.data.id,
+      id: node.data.id, // Can be "marker-..." or Long ID
       canvasX: Math.round(node.x),
-      canvasY: Math.round(node.y)
+      canvasY: Math.round(node.y),
+      name: node.data.name,
+      latitude: node.data.lat,
+      longitude: node.data.lng,
+      address: node.data.address || ''
     })),
     edges: edges.value.map(edge => ({
       sourcePointId: edge.source,
@@ -621,13 +753,83 @@ const saveWorkflow = async () => {
       label: edge.label || ''
     }))
   }
+  return payload
+}
+
+const doSaveWorkflow = async (routeId) => {
+  const payload = buildWorkflowPayload()
   try {
     await saveGuideRouteWorkflow(routeId, payload)
-    ElMessage.success('工作流保存成功')
+    ElMessage.success('旅游路线保存成功')
     markSaved()
   } catch (e) {
-    ElMessage.error(e.message || '保存工作流失败')
+    ElMessage.error('旅游路线保存失败')
   }
+}
+
+const confirmSaveRoute = async () => {
+  if (!saveDialog.form.name || !saveDialog.form.name.trim()) {
+    ElMessage.warning('请填写路线名称')
+    return
+  }
+  saveDialog.loading = true
+  try {
+    // 1. Upload image if selected
+    if (saveDialog.uploadFile) {
+      const urls = await uploadSingleImage(saveDialog.uploadFile)
+      if (urls && urls.length > 0) {
+        saveDialog.form.coverImage = urls[0]
+      }
+    }
+
+    const payload = {
+      name: saveDialog.form.name.trim(),
+      description: saveDialog.form.description || '',
+      coverImage: saveDialog.form.coverImage || '',
+      totalDistance: saveDialog.form.totalDistance || null,
+      totalDuration: saveDialog.form.totalDuration || null
+    }
+    const newId = await createGuideRoute(payload)
+    if (!newId) {
+      throw new Error('创建路线失败，未返回ID')
+    }
+    await doSaveWorkflow(newId)
+    saveDialog.visible = false
+    const currentQuery = { ...route.query, routeId: newId }
+    router.replace({ name: route.name, query: currentQuery })
+  } catch (e) {
+    ElMessage.error('旅游路线保存失败')
+  } finally {
+    saveDialog.loading = false
+  }
+}
+
+const triggerUpload = () => {
+  fileInputRef.value?.click()
+}
+
+const onFileChange = (e) => {
+  const file = e.target.files[0]
+  if (!file) return
+
+  // Create preview URL
+  if (saveDialog.previewUrl) {
+    URL.revokeObjectURL(saveDialog.previewUrl)
+  }
+  saveDialog.previewUrl = URL.createObjectURL(file)
+  saveDialog.uploadFile = file
+  
+  // Clear input value so same file can be selected again
+  e.target.value = ''
+}
+
+const removeCover = () => {
+  if (saveDialog.previewUrl) {
+    URL.revokeObjectURL(saveDialog.previewUrl)
+  }
+  saveDialog.previewUrl = ''
+  saveDialog.uploadFile = null
+  saveDialog.form.coverImage = ''
 }
 
 </script>
@@ -807,4 +1009,108 @@ const saveWorkflow = async () => {
   transform: translateY(-50%) scale(1.2);
 }
 
+/* Save Dialog Styles */
+.save-dialog-body {
+  display: flex;
+  gap: 20px;
+}
+
+.form-left {
+  flex: 1;
+}
+
+.form-right {
+  width: 200px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.upload-container {
+  width: 100%;
+  height: 200px;
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: border-color 0.3s;
+  background-color: #fafafa;
+}
+
+.upload-container:hover {
+  border-color: #409EFF;
+}
+
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #8c939d;
+}
+
+.upload-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.upload-text {
+  font-size: 14px;
+}
+
+.preview-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.cover-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.preview-wrapper:hover .mask {
+  opacity: 1;
+}
+
+.close-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border-radius: 50%;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  z-index: 10;
+}
+
+.close-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.hidden-input {
+  display: none;
+}
 </style>

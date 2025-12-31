@@ -93,13 +93,14 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Picture, Document } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { fetchGuideRouteCards } from '@/api'
+import { fetchGuideRouteCards, fetchGuideRouteDraftCards } from '@/api'
 
 const router = useRouter()
 const searchKeyword = ref('')
 const defaultCover = '/images/guide-map-default.jpg'
 const guideMapsRaw = ref([])
 const loading = ref(false)
+const currentMode = ref('published')
 
 const guideMaps = computed(() => {
   const keyword = searchKeyword.value.trim()
@@ -127,19 +128,23 @@ const viewGuideMap = (item) => {
   router.push({ name: 'admin-guide-map-workflow', query: { routeId: item.id } })
 }
 
-const loadDraft = () => {
-  const draft = sessionStorage.getItem('guideMapWorkflowState')
-  if (!draft) {
-    return ElMessage.warning('当前没有草稿记录')
+const loadDraft = async () => {
+  await loadGuideMaps('draft')
+  if (!guideMapsRaw.value.length) {
+    ElMessage.warning('当前没有草稿记录')
+    await loadGuideMaps('published')
+    return
   }
-  ElMessage.success('正在加载草稿...')
-  router.push({ name: 'admin-guide-map-workflow', query: { mode: 'draft' } })
+  ElMessage.success('已切换到草稿列表，请点击卡片继续编辑')
 }
 
-async function loadGuideMaps() {
+async function loadGuideMaps(mode = 'published') {
+  currentMode.value = mode
   loading.value = true
   try {
-    const data = await fetchGuideRouteCards()
+    const data = mode === 'draft'
+      ? await fetchGuideRouteDraftCards()
+      : await fetchGuideRouteCards()
     guideMapsRaw.value = (data || []).map(item => {
       let coverUrl = ''
       if (item.coverImage) {
