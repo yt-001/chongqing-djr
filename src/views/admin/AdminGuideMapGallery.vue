@@ -15,10 +15,21 @@
           </el-button>
         </template>
       </el-input>
+
+      <!-- 草稿箱按钮 -->
+      <el-button 
+        type="warning" 
+        plain 
+        class="draft-btn" 
+        @click="loadDraft"
+      >
+        <el-icon><Document /></el-icon>
+        加载草稿
+      </el-button>
     </div>
 
     <!-- 图库列表区域 -->
-    <div class="gallery-container">
+    <div class="gallery-container" v-loading="loading">
       <el-row :gutter="20">
         <el-col
           v-for="item in guideMaps"
@@ -78,32 +89,84 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { Search, Picture } from '@element-plus/icons-vue'
+import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { Search, Picture, Document } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { fetchGuideRouteCards } from '@/api'
 
+const router = useRouter()
 const searchKeyword = ref('')
-const defaultCover = 'https://via.placeholder.com/300x200?text=Guide+Map'
+const defaultCover = '/images/guide-map-default.jpg'
+const guideMapsRaw = ref([])
+const loading = ref(false)
 
-// 模拟数据
-const guideMaps = ref([
-  { id: 1, name: '重庆一日游经典路线', nodeCount: 5, createTime: '2023-12-01', coverUrl: '' },
-  { id: 2, name: '洪崖洞周边美食打卡', nodeCount: 8, createTime: '2023-12-05', coverUrl: '' },
-  { id: 3, name: '解放碑历史文化游', nodeCount: 4, createTime: '2023-12-10', coverUrl: '' },
-  { id: 4, name: '江北嘴夜景最佳观赏点', nodeCount: 3, createTime: '2023-12-12', coverUrl: '' },
-  { id: 5, name: '轻轨穿楼体验路线', nodeCount: 6, createTime: '2023-12-15', coverUrl: '' },
-  { id: 6, name: '南山一棵树观景路线', nodeCount: 2, createTime: '2023-12-20', coverUrl: '' },
-])
+const guideMaps = computed(() => {
+  const keyword = searchKeyword.value.trim()
+  if (!keyword) {
+    return guideMapsRaw.value
+  }
+  return guideMapsRaw.value.filter(item =>
+    item.name && item.name.toLowerCase().includes(keyword.toLowerCase())
+  )
+})
 
 const handleSearch = () => {
-  ElMessage.success(`正在搜索：${searchKeyword.value}`)
-  // TODO: 调用后端接口搜索
+  if (!searchKeyword.value.trim()) {
+    return
+  }
+  if (!guideMaps.value.length) {
+    ElMessage.info('暂无匹配的向导图')
+  }
 }
 
 const viewGuideMap = (item) => {
-  ElMessage.info(`查看向导图：${item.name}`)
-  // TODO: 跳转详情或打开弹窗
+  if (!item || !item.id) {
+    return
+  }
+  router.push({ name: 'admin-guide-map-workflow', query: { routeId: item.id } })
 }
+
+const loadDraft = () => {
+  const draft = sessionStorage.getItem('guideMapWorkflowState')
+  if (!draft) {
+    return ElMessage.warning('当前没有草稿记录')
+  }
+  ElMessage.success('正在加载草稿...')
+  router.push({ name: 'admin-guide-map-workflow', query: { mode: 'draft' } })
+}
+
+async function loadGuideMaps() {
+  loading.value = true
+  try {
+    const data = await fetchGuideRouteCards()
+    guideMapsRaw.value = (data || []).map(item => {
+      let coverUrl = ''
+      if (item.coverImage) {
+        if (item.coverImage.startsWith('http')) {
+          coverUrl = item.coverImage
+        } else {
+          coverUrl = `/images/${item.coverImage}`
+        }
+      }
+      return {
+        id: item.id,
+        name: item.name,
+        nodeCount: item.pointCount || 0,
+        createTime: item.createTime || '',
+        coverUrl
+      }
+    })
+  } catch (error) {
+    ElMessage.error(error.message || '加载向导图库失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  loadGuideMaps()
+})
 </script>
 
 <style scoped>
@@ -117,6 +180,7 @@ const viewGuideMap = (item) => {
   margin-bottom: 24px;
   display: flex;
   justify-content: flex-start;
+  gap: 16px;
 }
 
 .search-input {

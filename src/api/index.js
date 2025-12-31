@@ -16,3 +16,5 @@ export * from './modules/favorites.js' // 收藏模块
 export * from './modules/comments.js' // 评论模块
 export * from './modules/popularAttractions.js' // 热门景点
 export * from './modules/admin/popularAttractions.js' // 管理端热门景点
+export * from './modules/guideRoutes.js' // 向导路线/向导图库
+export * from './modules/guideRoutesWorkflow.js' // 向导路线详情（工作流）

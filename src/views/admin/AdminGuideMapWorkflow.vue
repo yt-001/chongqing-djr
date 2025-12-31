@@ -23,6 +23,7 @@
       @mousemove="onMouseMove" 
       @mouseup="onMouseUp"
       @click="onCanvasClick"
+      v-loading="loading"
     >
       <!-- Connections Layer (SVG) -->
       <svg class="connections-layer">
@@ -55,13 +56,16 @@
           <!-- Label -->
           <foreignObject 
             v-if="edge.label"
-            :x="getEdgeCenter(edge).x - 60" 
-            :y="getEdgeCenter(edge).y - 15" 
-            width="120" 
-            height="30"
-            style="pointer-events: none;"
+            :x="getEdgeCenter(edge).x - 80" 
+            :y="getEdgeCenter(edge).y - 16" 
+            width="160" 
+            height="32"
           >
-            <div class="edge-label-container">
+            <div 
+              class="edge-label-container" 
+              @click.stop="editEdgeLabel(edge)"
+              :title="edge.label"
+            >
               <span class="edge-label">{{ edge.label }}</span>
             </div>
           </foreignObject>
@@ -129,17 +133,44 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, reactive, watch, computed, onBeforeUnmount } from 'vue'
+import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Location, InfoFilled } from '@element-plus/icons-vue'
+import { fetchGuideRouteDetail, saveGuideRouteWorkflow } from '@/api'
 
 const router = useRouter()
+const route = useRoute()
 const canvasRef = ref(null)
 
-// Data
 const nodes = ref([])
 const edges = ref([])
+
+const loading = ref(false)
+const originalState = ref('')
+
+const serializeState = () => JSON.stringify({
+  nodes: nodes.value,
+  edges: edges.value
+})
+
+const markSaved = () => {
+  originalState.value = serializeState()
+}
+
+const hasUnsavedChanges = computed(() => {
+  if (!originalState.value) return false
+  return serializeState() !== originalState.value
+})
+
+// 监听数据变化，自动保存到缓存
+watch([nodes, edges], () => {
+  const state = {
+    nodes: nodes.value,
+    edges: edges.value
+  }
+  sessionStorage.setItem('guideMapWorkflowState', JSON.stringify(state))
+}, { deep: true })
 
 // State
 const draggingState = reactive({
@@ -170,49 +201,166 @@ onMounted(() => {
   loadData()
 })
 
-const loadData = () => {
+const loadData = async () => {
+  const routeId = route.query.routeId
+  if (routeId) {
+    await loadDataFromBackend(routeId)
+    markSaved()
+    return
+  }
   try {
-    // 1. 尝试加载暂存的工作流状态 (包含节点位置和连线)
+    // 1. 获取最新的标记数据（作为存在性依据）
+    const rawData = sessionStorage.getItem('guideMapData')
+    const markers = rawData ? JSON.parse(rawData) : []
+
+    // 2. 获取缓存的工作流状态（作为布局和连线依据）
     const savedWorkflow = sessionStorage.getItem('guideMapWorkflowState')
+    let cachedState = null
     if (savedWorkflow) {
-      const state = JSON.parse(savedWorkflow)
-      nodes.value = state.nodes || []
-      edges.value = state.edges || []
-      
-      // 验证数据同步：检查 markers 数据是否有新增/删除，这里简单处理，如果markers变了，可能需要重新合并
-      // 目前假设用户只是想恢复上次编辑的状态
-      if (nodes.value.length > 0) {
-        ElMessage.success('已恢复暂存的工作流状态')
-        return
-      }
+      cachedState = JSON.parse(savedWorkflow)
     }
 
-    // 2. 如果没有暂存状态，则从 markers 原始数据初始化
-    const rawData = sessionStorage.getItem('guideMapData')
-    if (rawData) {
-      const markers = JSON.parse(rawData)
-      // Initial layout: Grid or Waterfall
-      // Let's do a simple grid layout
-      const cols = 4
-      const xGap = 280
-      const yGap = 180
-      const startX = 50
-      const startY = 50
-
-      nodes.value = markers.map((m, index) => ({
-        id: m.id || `node-${index}-${Date.now()}`,
-        x: startX + (index % cols) * xGap,
-        y: startY + Math.floor(index / cols) * yGap,
-        data: { ...m }
-      }))
-    } else {
+    if (markers.length === 0 && !cachedState) {
       ElMessage.warning('没有找到标记数据，请重新从地图页面进入')
       setTimeout(() => router.back(), 2000)
+      return
     }
+
+    // 3. 智能合并策略
+    // 目标：保留缓存中的位置和连线，同时同步地图页面的最新标记（新增/删除）
+    
+    // 如果没有缓存，直接全量初始化
+    if (!cachedState || !cachedState.nodes || cachedState.nodes.length === 0) {
+      initNodesFromMarkers(markers)
+      markSaved()
+      return
+    }
+
+    const mergedNodes = []
+    const validNodeIds = new Set()
+    
+    // 布局参数
+    const cols = 4
+    const xGap = 280
+    const yGap = 180
+    const startX = 50
+    const startY = 50
+
+    markers.forEach((marker, index) => {
+      // 尝试在缓存中找到对应节点 (假设 marker.id 是稳定的，如果 AdminGuideMap 生成的 id 不稳定，可能需要用 lat/lng 匹配)
+      // AdminGuideMap 中 id = `marker-${Date.now()}`，如果是重新加载页面，id 会变吗？
+      // 如果 AdminGuideMap 从 sessionStorage 加载，id 应该是不变的。
+      const cachedNode = cachedState.nodes.find(n => n.data.id === marker.id)
+
+      if (cachedNode) {
+        // 找到缓存：保留位置，更新数据（防止名称等变动）
+        mergedNodes.push({
+          ...cachedNode,
+          data: { ...marker } // 更新最新数据
+        })
+      } else {
+        // 新增标记：追加到末尾或网格空位
+        // 简单起见，计算一个基于当前总数的位置
+        const newIndex = cachedState.nodes.length + index // 粗略计算，防止重叠太严重
+        mergedNodes.push({
+          id: marker.id, // 确保 ID 一致
+          x: startX + (newIndex % cols) * xGap,
+          y: startY + Math.floor(newIndex / cols) * yGap,
+          data: { ...marker }
+        })
+      }
+      validNodeIds.add(marker.id)
+    })
+
+    // 4. 过滤连线：只保留两端都存在的连线
+    const mergedEdges = (cachedState.edges || []).filter(edge => 
+      validNodeIds.has(edge.source) && validNodeIds.has(edge.target)
+    )
+
+    nodes.value = mergedNodes
+    edges.value = mergedEdges
+    
+    if (mergedNodes.length > 0) {
+      // ElMessage.success('已自动恢复布局和连线')
+    }
+    markSaved()
+
   } catch (e) {
     console.error('Failed to load data', e)
     ElMessage.error('数据加载失败')
   }
+}
+
+const loadDataFromBackend = async (routeId) => {
+  try {
+    loading.value = true
+    const detail = await fetchGuideRouteDetail(routeId)
+    if (!detail || !Array.isArray(detail.points) || detail.points.length === 0) {
+      ElMessage.warning('未找到该路线的节点数据')
+      return
+    }
+    const points = detail.points
+    const cols = Math.min(points.length || 1, 4)
+    const xGap = 280
+    const yGap = 180
+    const startX = 50
+    const startY = 50
+    nodes.value = points.map((p, index) => {
+      const hasLayoutX = typeof p.canvasX === 'number' && !Number.isNaN(p.canvasX)
+      const hasLayoutY = typeof p.canvasY === 'number' && !Number.isNaN(p.canvasY)
+      const fallbackX = startX + (index % cols) * xGap
+      const fallbackY = startY + Math.floor(index / cols) * yGap
+      return {
+        id: p.id,
+        x: hasLayoutX ? p.canvasX : fallbackX,
+        y: hasLayoutY ? p.canvasY : fallbackY,
+        data: {
+          id: p.id,
+          name: p.name,
+          lat: Number(p.latitude),
+          lng: Number(p.longitude)
+        }
+      }
+    })
+    const nodeIdSet = new Set(nodes.value.map(n => n.id))
+    edges.value = (detail.edges || [])
+      .filter(e => nodeIdSet.has(e.sourcePointId) && nodeIdSet.has(e.targetPointId))
+      .map(e => ({
+        id: e.id,
+        source: e.sourcePointId,
+        target: e.targetPointId,
+        label: e.label || ''
+      }))
+  } catch (e) {
+    console.error(e)
+    ElMessage.error(e.message || '加载路线详情失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const initNodesFromMarkers = (markers) => {
+  const cols = 4
+  const xGap = 280
+  const yGap = 180
+  const startX = 50
+  const startY = 50
+
+  nodes.value = markers.map((m, index) => ({
+    id: m.id || `node-${index}-${Date.now()}`,
+    x: startX + (index % cols) * xGap,
+    y: startY + Math.floor(index / cols) * yGap,
+    data: { ...m }
+  }))
+}
+
+// 简单的辅助函数，实际场景可能不需要弹出询问，直接加载
+// 这里我们为了逻辑严谨：如果是显式点击“加载草稿”，则直接加载
+// 如果是普通进入，且发现有草稿，也可以直接加载，或者询问
+const confirmLoadDraft = (saved) => {
+  // 简化逻辑：只要有草稿，默认就加载草稿，因为那是最新状态
+  // 如果想区分“从地图重新进入”和“恢复草稿”，可能需要更多标志位
+  return true
 }
 
 const tempSaveWorkflow = () => {
@@ -223,6 +371,7 @@ const tempSaveWorkflow = () => {
     }
     sessionStorage.setItem('guideMapWorkflowState', JSON.stringify(state))
     ElMessage.success('工作流已暂存')
+    markSaved()
   } catch (e) {
     ElMessage.error('暂存失败')
   }
@@ -231,6 +380,34 @@ const tempSaveWorkflow = () => {
 const goBack = () => {
   router.back()
 }
+
+const beforeUnloadHandler = (e) => {
+  if (!hasUnsavedChanges.value) return
+  e.preventDefault()
+  e.returnValue = ''
+}
+
+onMounted(() => {
+  window.addEventListener('beforeunload', beforeUnloadHandler)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', beforeUnloadHandler)
+})
+
+onBeforeRouteLeave((to, from, next) => {
+  if (!hasUnsavedChanges.value) {
+    next()
+    return
+  }
+  ElMessageBox.confirm('当前有未保存的修改，确认要离开当前页面吗？', '提示', {
+    type: 'warning'
+  }).then(() => {
+    next()
+  }).catch(() => {
+    next(false)
+  })
+})
 
 // --- Dragging Logic ---
 const startDrag = (e, node) => {
@@ -426,14 +603,31 @@ const clearConnections = () => {
   })
 }
 
-const saveWorkflow = () => {
-  // Save logic here
-  console.log('Nodes:', nodes.value)
-  console.log('Edges:', edges.value)
-  
-  // Example: Convert back to markers structure or save workflow object
-  // For now, just show success
-  ElMessage.success('工作流保存成功！(数据已打印到控制台)')
+const saveWorkflow = async () => {
+  const routeId = route.query.routeId
+  if (!routeId) {
+    ElMessage.warning('当前路线未关联后端ID，暂不支持保存到数据库')
+    return
+  }
+  const payload = {
+    points: nodes.value.map(node => ({
+      id: node.data.id,
+      canvasX: Math.round(node.x),
+      canvasY: Math.round(node.y)
+    })),
+    edges: edges.value.map(edge => ({
+      sourcePointId: edge.source,
+      targetPointId: edge.target,
+      label: edge.label || ''
+    }))
+  }
+  try {
+    await saveGuideRouteWorkflow(routeId, payload)
+    ElMessage.success('工作流保存成功')
+    markSaved()
+  } catch (e) {
+    ElMessage.error(e.message || '保存工作流失败')
+  }
 }
 
 </script>
