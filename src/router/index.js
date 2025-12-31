@@ -22,6 +22,7 @@ const router = createRouter({
   routes: [
     { path: '/', name: 'home', component: Home, meta: { title: '首页' } },
     { path: '/recommend', name: 'recommend', component: Recommend, meta: { title: '推荐' } },
+    { path: '/guide-routes', name: 'guide-routes', component: () => import('@/views/GuideRoutes.vue'), meta: { title: '路线推荐', hideTabbar: true } },
     { path: '/food', name: 'food', component: Food, meta: { title: '美食' } },
     { path: '/food/:id', name: 'food-detail', component: FoodDetail, meta: { title: '美食详情', hideTabbar: true } },
     { path: '/accommodations', name: 'accommodation-list', component: () => import('@/views/AccommodationList.vue'), meta: { title: '住宿列表', hideTabbar: true } },
@@ -37,6 +38,7 @@ const router = createRouter({
     { path: '/orders/completed', name: 'completed-orders', component: CompletedOrders, meta: { title: '已完成', hideTabbar: true } },
     { path: '/my-favorites', name: 'my-favorites', component: () => import('@/views/MyFavorites.vue'), meta: { title: '我的收藏', hideTabbar: true } },
     { path: '/map', name: 'map-navigation', component: () => import('@/views/MapNavigation.vue'), meta: { title: '景点导航', hideTabbar: true } },
+    { path: '/route-map', name: 'route-map-navigation', component: () => import('@/views/RouteMapNavigation.vue'), meta: { title: '路线详情', hideTabbar: true } },
 
     { path: '/login', name: 'login', component: () => import('@/views/Login.vue'), meta: { title: '登录', hideTabbar: true } },
     { path: '/register', name: 'register', component: () => import('@/views/Register.vue'), meta: { title: '注册', hideTabbar: true } },

@@ -60,6 +60,24 @@ export function createGuideRoute(payload) {
 }
 
 /**
+ * 修改向导路线基础信息
+ * 方法：PUT
+ * 路径：/guide-routes/{id}
+ * @param {number|string} id 路线ID
+ * @param {{
+ *   name: string,
+ *   description?: string,
+ *   coverImage?: string,
+ *   totalDistance?: number,
+ *   totalDuration?: number,
+ *   editStatus?: number
+ * }} payload
+ */
+export function updateGuideRoute(id, payload) {
+  return request(`/guide-routes/${id}`, { method: 'PUT', body: payload, timeoutMs: 10000 })
+}
+
+/**
  * 新增向导路线草稿（editStatus=0）
  * 方法：POST
  * 路径：/guide-routes

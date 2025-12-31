@@ -205,7 +205,7 @@ import { ref, onMounted, reactive, watch, computed, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Location, InfoFilled, Plus, Close } from '@element-plus/icons-vue'
-import { fetchGuideRouteDetail, saveGuideRouteWorkflow, createGuideRoute, createGuideRouteDraft } from '@/api'
+import { fetchGuideRouteDetail, saveGuideRouteWorkflow, createGuideRoute, createGuideRouteDraft, updateGuideRoute } from '@/api'
 import { uploadSingleImage } from '@/api/modules/upload'
 
 const router = useRouter()
@@ -218,6 +218,7 @@ const edges = ref([])
 
 const loading = ref(false)
 const originalState = ref('')
+const routeDetail = ref(null)
 
 const saveDialog = reactive({
   visible: false,
@@ -383,6 +384,7 @@ const loadDataFromBackend = async (routeId) => {
       ElMessage.warning('未找到该路线的节点数据')
       return
     }
+    routeDetail.value = detail
     const points = detail.points
     const cols = Math.min(points.length || 1, 4)
     const xGap = 280
@@ -725,15 +727,20 @@ const clearConnections = () => {
 
 const saveWorkflow = async () => {
   const routeId = route.query.routeId
-  if (!routeId) {
-    if (!nodes.value.length) {
-      ElMessage.warning('当前没有任何节点，无法保存旅游路线')
-      return
-    }
-    saveDialog.visible = true
+  if (!nodes.value.length) {
+    ElMessage.warning('当前没有任何节点，无法保存旅游路线')
     return
   }
-  await doSaveWorkflow(routeId)
+
+  if (routeId && routeDetail.value) {
+    saveDialog.form.name = routeDetail.value.name || ''
+    saveDialog.form.description = routeDetail.value.description || ''
+    saveDialog.form.coverImage = routeDetail.value.coverImage || ''
+    saveDialog.form.totalDistance = routeDetail.value.totalDistance ?? null
+    saveDialog.form.totalDuration = routeDetail.value.totalDuration ?? null
+  }
+
+  saveDialog.visible = true
 }
 
 const buildWorkflowPayload = () => {
@@ -789,13 +796,26 @@ const confirmSaveRoute = async () => {
       totalDistance: saveDialog.form.totalDistance || null,
       totalDuration: saveDialog.form.totalDuration || null
     }
-    const newId = await createGuideRoute(payload)
-    if (!newId) {
-      throw new Error('创建路线失败，未返回ID')
+    const currentRouteId = route.query.routeId
+    let finalRouteId = currentRouteId
+
+    if (!currentRouteId) {
+      const newId = await createGuideRoute(payload)
+      if (!newId) {
+        throw new Error('创建路线失败，未返回ID')
+      }
+      finalRouteId = newId
+    } else {
+      const currentEditStatus = routeDetail.value?.editStatus
+      const nextEditStatus = typeof currentEditStatus === 'number' || typeof currentEditStatus === 'bigint'
+        ? (currentEditStatus === 0 ? 1 : currentEditStatus)
+        : 1
+      await updateGuideRoute(currentRouteId, { ...payload, editStatus: nextEditStatus })
     }
-    await doSaveWorkflow(newId)
+
+    await doSaveWorkflow(finalRouteId)
     saveDialog.visible = false
-    const currentQuery = { ...route.query, routeId: newId }
+    const currentQuery = { ...route.query, routeId: finalRouteId }
     router.replace({ name: route.name, query: currentQuery })
   } catch (e) {
     ElMessage.error('旅游路线保存失败')

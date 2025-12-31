@@ -17,12 +17,16 @@ const onCategoryClick = (name) => {
     router.push({ name: 'accommodation-list' })
     return
   }
+  if (name === '路线推荐') {
+    router.push({ name: 'guide-routes' })
+    return
+  }
   showToast({ message: `${name} 开发中`, position: 'top' })
 }
 
 // 顶部彩色分类（第一排）
 const categoriesTop = ref([
-  { name: '亲子游', icon: 'smile-o', color: '#26c6da' },
+  { name: '路线推荐', icon: 'guide-o', color: '#26c6da' },
   { name: '文化游', icon: 'balance-o', color: '#42a5f5' },
   { name: '温泉游', icon: 'fire-o', color: '#ef6c00' },
   { name: '周边游', icon: 'location-o', color: '#8e24aa' },
