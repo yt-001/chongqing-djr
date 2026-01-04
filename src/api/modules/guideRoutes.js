@@ -23,6 +23,15 @@ export function fetchGuideRouteCards() {
 }
 
 /**
+ * 获取已禁用向导路线卡片列表
+ * 方法：GET
+ * 路径：/guide-routes/disabled-cards
+ */
+export function fetchGuideRouteDisabledCards() {
+  return request('/guide-routes/disabled-cards', { method: 'GET', timeoutMs: 10000 })
+}
+
+/**
  * 获取向导图库草稿卡片列表（editStatus=0）
  * 方法：GET
  * 路径：/guide-routes/drafts
@@ -75,6 +84,36 @@ export function createGuideRoute(payload) {
  */
 export function updateGuideRoute(id, payload) {
   return request(`/guide-routes/${id}`, { method: 'PUT', body: payload, timeoutMs: 10000 })
+}
+
+/**
+ * 删除向导路线
+ * 方法：DELETE
+ * 路径：/guide-routes/{id}
+ * @param {number|string} id 路线ID
+ */
+export function deleteGuideRoute(id) {
+  return request(`/guide-routes/${id}`, { method: 'DELETE', timeoutMs: 10000 })
+}
+
+/**
+ * 禁用向导路线（status=0）
+ * 方法：PUT
+ * 路径：/guide-routes/{id}/disable
+ * @param {number|string} id 路线ID
+ */
+export function disableGuideRoute(id) {
+  return request(`/guide-routes/${id}/disable`, { method: 'PUT', timeoutMs: 10000 })
+}
+
+/**
+ * 恢复启用向导路线（status=1）
+ * 方法：PUT
+ * 路径：/guide-routes/{id}/enable
+ * @param {number|string} id 路线ID
+ */
+export function enableGuideRoute(id) {
+  return request(`/guide-routes/${id}/enable`, { method: 'PUT', timeoutMs: 10000 })
 }
 
 /**

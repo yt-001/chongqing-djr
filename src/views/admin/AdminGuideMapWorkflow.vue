@@ -9,6 +9,7 @@
         <el-button @click="tempSaveWorkflow">暂存</el-button>
         <el-button type="primary" @click="saveWorkflow">保存旅游路线</el-button>
         <el-button @click="clearConnections">清空连线</el-button>
+        <el-button type="danger" @click="disableCurrentRoute" v-if="route.query.routeId">禁用路线</el-button>
       </div>
     </div>
     
@@ -205,7 +206,7 @@ import { ref, onMounted, reactive, watch, computed, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Location, InfoFilled, Plus, Close } from '@element-plus/icons-vue'
-import { fetchGuideRouteDetail, saveGuideRouteWorkflow, createGuideRoute, createGuideRouteDraft, updateGuideRoute } from '@/api'
+import { fetchGuideRouteDetail, saveGuideRouteWorkflow, createGuideRoute, createGuideRouteDraft, updateGuideRoute, disableGuideRoute } from '@/api'
 import { uploadSingleImage } from '@/api/modules/upload'
 
 const router = useRouter()
@@ -826,6 +827,32 @@ const confirmSaveRoute = async () => {
 
 const triggerUpload = () => {
   fileInputRef.value?.click()
+}
+
+const disableCurrentRoute = async () => {
+  const routeId = route.query.routeId
+  if (!routeId) return
+  try {
+    await ElMessageBox.confirm(
+      '禁用后该路线将在前台隐藏，只能在禁用列表中恢复或删除。确定要禁用当前路线吗？',
+      '提示',
+      {
+        type: 'warning',
+        confirmButtonText: '禁用',
+        cancelButtonText: '取消'
+      }
+    )
+  } catch {
+    return
+  }
+
+  try {
+    await disableGuideRoute(routeId)
+    ElMessage.success('禁用成功')
+    router.push({ name: 'admin-guide-map-gallery' })
+  } catch (e) {
+    ElMessage.error(e.message || '禁用失败')
+  }
 }
 
 const onFileChange = (e) => {

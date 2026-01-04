@@ -26,6 +26,28 @@
         <el-icon><Document /></el-icon>
         加载草稿
       </el-button>
+
+      <!-- 禁用列表按钮 -->
+      <el-button 
+        type="danger" 
+        plain 
+        class="disabled-btn" 
+        @click="loadDisabled"
+      >
+        <el-icon><Delete /></el-icon>
+        查看禁用
+      </el-button>
+
+      <!-- 返回按钮（草稿 / 禁用模式下显示） -->
+      <el-button
+        v-if="currentMode !== 'published'"
+        type="info"
+        plain
+        class="back-btn"
+        @click="backToPublished"
+      >
+        返回已发布
+      </el-button>
     </div>
 
     <!-- 图库列表区域 -->
@@ -78,8 +100,43 @@
           </div>
           <div class="card-info">
              <h3 class="map-name">{{ item.name }}</h3>
-             <div class="map-meta">
+             <div 
+               class="map-meta" 
+               v-if="currentMode !== 'disabled'"
+             >
                 <span>{{ item.nodeCount }}个点位</span>
+                <el-button
+                  type="danger"
+                  text
+                  size="small"
+                  @click.stop="handleDisable(item)"
+                >
+                  禁用
+                </el-button>
+             </div>
+             <div 
+               v-else 
+               class="map-meta disabled-meta"
+             >
+               <span class="disabled-tag">已禁用</span>
+               <div class="disabled-actions">
+                 <el-button
+                   type="primary"
+                   text
+                   size="small"
+                   @click.stop="handleEnable(item)"
+                 >
+                   恢复
+                 </el-button>
+                 <el-button
+                   type="danger"
+                   text
+                   size="small"
+                   @click.stop="handleDelete(item)"
+                 >
+                   删除
+                 </el-button>
+               </div>
              </div>
           </div>
         </div>
@@ -91,9 +148,16 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Picture, Document } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
-import { fetchGuideRouteCards, fetchGuideRouteDraftCards } from '@/api'
+import { Search, Picture, Document, Delete } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  fetchGuideRouteCards,
+  fetchGuideRouteDraftCards,
+  fetchGuideRouteDisabledCards,
+  deleteGuideRoute,
+  disableGuideRoute,
+  enableGuideRoute
+} from '@/api'
 
 const router = useRouter()
 const searchKeyword = ref('')
@@ -128,6 +192,77 @@ const viewGuideMap = (item) => {
   router.push({ name: 'admin-guide-map-workflow', query: { routeId: item.id } })
 }
 
+const handleDisable = async (item) => {
+  if (!item || !item.id) return
+  try {
+    await ElMessageBox.confirm(
+      `禁用后该路线将在前台隐藏，只能在禁用列表中恢复或删除。确定要禁用「${item.name}」吗？`,
+      '提示',
+      {
+        type: 'warning',
+        confirmButtonText: '禁用',
+        cancelButtonText: '取消'
+      }
+    )
+  } catch {
+    return
+  }
+
+  try {
+    await disableGuideRoute(item.id)
+    guideMapsRaw.value = guideMapsRaw.value.filter(route => route.id !== item.id)
+    ElMessage.success('禁用成功')
+  } catch (e) {
+    ElMessage.error(e.message || '禁用失败')
+  }
+}
+
+const handleEnable = async (item) => {
+  if (!item || !item.id) return
+  try {
+    await ElMessageBox.confirm(
+      `确定要恢复启用路线「${item.name}」吗？`,
+      '提示',
+      {
+        type: 'warning',
+        confirmButtonText: '恢复',
+        cancelButtonText: '取消'
+      }
+    )
+  } catch {
+    return
+  }
+
+  try {
+    await enableGuideRoute(item.id)
+    guideMapsRaw.value = guideMapsRaw.value.filter(route => route.id !== item.id)
+    ElMessage.success('恢复成功')
+  } catch (e) {
+    ElMessage.error(e.message || '恢复失败')
+  }
+}
+
+const handleDelete = async (item) => {
+  if (!item || !item.id) return
+  try {
+    await ElMessageBox.confirm(`确定要删除路线「${item.name}」吗？此操作不可恢复`, '提示', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消'
+    })
+  } catch {
+    return
+  }
+
+  try {
+    await deleteGuideRoute(item.id)
+    guideMapsRaw.value = guideMapsRaw.value.filter(route => route.id !== item.id)
+    ElMessage.success('删除成功')
+  } catch (e) {
+    ElMessage.error(e.message || '删除失败')
+  }
+}
+
 const loadDraft = async () => {
   await loadGuideMaps('draft')
   if (!guideMapsRaw.value.length) {
@@ -138,13 +273,31 @@ const loadDraft = async () => {
   ElMessage.success('已切换到草稿列表，请点击卡片继续编辑')
 }
 
+const loadDisabled = async () => {
+  await loadGuideMaps('disabled')
+  if (!guideMapsRaw.value.length) {
+    ElMessage.warning('当前没有禁用的路线')
+    await loadGuideMaps('published')
+    return
+  }
+  ElMessage.success('已切换到禁用列表')
+}
+
+const backToPublished = async () => {
+  await loadGuideMaps('published')
+  ElMessage.success('已返回已发布列表')
+}
+
 async function loadGuideMaps(mode = 'published') {
   currentMode.value = mode
   loading.value = true
   try {
-    const data = mode === 'draft'
-      ? await fetchGuideRouteDraftCards()
-      : await fetchGuideRouteCards()
+    const data =
+      mode === 'draft'
+        ? await fetchGuideRouteDraftCards()
+        : mode === 'disabled'
+          ? await fetchGuideRouteDisabledCards()
+          : await fetchGuideRouteCards()
     guideMapsRaw.value = (data || []).map(item => {
       let coverUrl = ''
       if (item.coverImage) {
