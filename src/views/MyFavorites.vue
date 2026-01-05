@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { 
@@ -18,50 +18,74 @@ const activeTab = ref(0)
 
 // 为每个 Tab 维护独立的状态
 const tabs = ref([
-  { id: 0, name: '景点', list: [], loading: false, finished: false, pageNum: 1 },
-  { id: 1, name: '美食', list: [], loading: false, finished: false, pageNum: 1 },
-  { id: 2, name: '住宿', list: [], loading: false, finished: false, pageNum: 1 }
+  { id: 0, name: '景点', list: [], loading: false, finished: false, pageNum: 1, total: null, requesting: false, emptyFetches: 0, _seenKeys: new Set() },
+  { id: 1, name: '美食', list: [], loading: false, finished: false, pageNum: 1, total: null, requesting: false, emptyFetches: 0, _seenKeys: new Set() },
+  { id: 2, name: '住宿', list: [], loading: false, finished: false, pageNum: 1, total: null, requesting: false, emptyFetches: 0, _seenKeys: new Set() }
 ])
 
 const pageSize = 10
 
-// 切换 Tab 时，如果该 Tab 为空且未完成，触发加载
-watch(activeTab, (newVal) => {
-  const tab = tabs.value[newVal]
-  if (tab.list.length === 0 && !tab.finished && !tab.loading) {
-    onLoad(newVal)
-  }
-})
+function getTab(tabIndex) {
+  return tabs.value.find(t => t.id === tabIndex)
+}
 
-// 首次进入页面，主动加载当前 Tab 数据
-onMounted(() => {
-  const tab = tabs.value[activeTab.value]
-  if (tab.list.length === 0 && !tab.finished && !tab.loading) {
-    onLoad(activeTab.value)
-  }
-})
+function getTargetByType(item, tabIndex) {
+  if (tabIndex === 0) return item.attraction || item
+  if (tabIndex === 1) return item.restaurant || item
+  if (tabIndex === 2) return item.accommodation || item
+  return item
+}
+
+function getTargetIdByType(item, tabIndex) {
+  if (tabIndex === 0) return (item.attraction && item.attraction.id) || item.attractionId || item.targetId
+  if (tabIndex === 1) return (item.restaurant && item.restaurant.id) || item.restaurantId || item.targetId
+  if (tabIndex === 2) return (item.accommodation && item.accommodation.id) || item.accommodationId || item.targetId
+  return item.targetId
+}
+
+function getItemUniqueKey(item, tabIndex) {
+  const targetId = getTargetIdByType(item, tabIndex)
+  const fallback = item?.id != null ? `fav-${item.id}` : JSON.stringify(item)
+  return `${tabIndex}:${targetId != null ? `target-${targetId}` : fallback}`
+}
+
+function normalizePage(res) {
+  const list = (res && Array.isArray(res.list) && res.list) || []
+  const total = typeof res?.total === 'number' ? res.total : null
+  const pageNum = typeof res?.pageNum === 'number' ? res.pageNum : null
+  const pageSizeFromRes = typeof res?.pageSize === 'number' ? res.pageSize : null
+  return { list, total, pageNum, pageSize: pageSizeFromRes }
+}
 
 /**
  * 加载数据（需登录，分页查询收藏）
  */
 async function onLoad(tabIndex = activeTab.value) {
-  const tab = tabs.value[tabIndex]
+  const tab = getTab(tabIndex)
   if (!tab) return
-  
+  if (tab.finished) {
+    tab.loading = false
+    return
+  }
+  if (tab.requesting) {
+    tab.loading = true
+    return
+  }
+
   // 登录拦截：未登录不发起请求
   if (!userStore.isLoggedIn) {
     tab.loading = false
     tab.finished = true
     return
   }
-  
-  if (tab.finished || tab.loading) return
-  tab.loading = true
-  
+
+  tab.requesting = true
+  const requestedPage = tab.pageNum
+
   try {
     let res
     const params = { 
-      pageNum: tab.pageNum, 
+      pageNum: requestedPage, 
       pageSize, 
       query: { userId: userStore.user?.id } // 显式传递用户ID以兼容后端
     }
@@ -74,19 +98,49 @@ async function onLoad(tabIndex = activeTab.value) {
       res = await fetchFavoriteAccommodationsPage(params)
     }
     
-    // 兼容后端返回结构
-    const newData = res.list || res.records || res.data?.list || []
-    
-    if (tab.pageNum === 1) {
-      tab.list = newData
-    } else {
-      tab.list.push(...newData)
+    const { list, total } = normalizePage(res)
+    if (typeof total === 'number') tab.total = total
+
+    const uniqueItems = []
+    for (const item of list) {
+      const key = getItemUniqueKey(item, tabIndex)
+      if (tab._seenKeys.has(key)) continue
+      tab._seenKeys.add(key)
+      uniqueItems.push(item)
     }
-    
-    if (newData.length < pageSize) {
-      tab.finished = true
+
+    if (requestedPage === 1 && tab.list.length > 0) {
+      tab.list = []
+      tab._seenKeys = new Set()
+      tab.emptyFetches = 0
+      for (const item of list) {
+        const key = getItemUniqueKey(item, tabIndex)
+        if (tab._seenKeys.has(key)) continue
+        tab._seenKeys.add(key)
+        tab.list.push(item)
+      }
     } else {
-      tab.pageNum++
+      tab.list.push(...uniqueItems)
+    }
+
+    if (uniqueItems.length === 0 && requestedPage > 1) {
+      tab.emptyFetches += 1
+    } else {
+      tab.emptyFetches = 0
+    }
+
+    if (typeof tab.total === 'number') {
+      tab.finished = tab.list.length >= tab.total
+    } else {
+      tab.finished = list.length < pageSize
+    }
+
+    if (!tab.finished) {
+      tab.pageNum = requestedPage + 1
+    }
+
+    if (!tab.finished && tab.emptyFetches >= 1) {
+      tab.finished = true
     }
   } catch (e) {
     tab.finished = true
@@ -94,6 +148,7 @@ async function onLoad(tabIndex = activeTab.value) {
     showToast(e?.message || '加载失败')
   } finally {
     tab.loading = false
+    tab.requesting = false
   }
 }
 
@@ -102,10 +157,7 @@ async function onLoad(tabIndex = activeTab.value) {
  */
 function getTarget(item) {
   // 根据不同 Tab 返回对应实体
-  if (activeTab.value === 0) return item.attraction || item
-  if (activeTab.value === 1) return item.restaurant || item
-  if (activeTab.value === 2) return item.accommodation || item
-  return item
+  return getTargetByType(item, activeTab.value)
 }
 
 /**

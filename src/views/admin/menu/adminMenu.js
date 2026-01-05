@@ -14,7 +14,9 @@ export default [
   {
     label: '餐饮管理', name: 'admin-restaurants-root', icon: 'ForkSpoon',
     children: [
-      { label: '餐饮列表', name: 'admin-restaurants' }
+      { label: '餐饮列表', name: 'admin-restaurants' },
+      { label: '菜品管理', name: 'admin-restaurant-dishes' },
+      { label: '分类管理', name: 'admin-restaurant-categories' }
     ]
   },
   {
