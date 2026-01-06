@@ -108,6 +108,27 @@ const total = ref(0)
 const page = reactive({ current: 1, size: 10 })
 const query = reactive({ keyword: '', role: '' })
 
+const minRefreshMs = 600
+const pageGuardMs = 600
+let refreshTimer = null
+let pageGuardTimer = null
+let lastPageTriggerTime = 0
+
+function requestPageLoad() {
+  const now = Date.now()
+  const elapsed = now - lastPageTriggerTime
+  if (!loading.value && elapsed >= pageGuardMs) {
+    lastPageTriggerTime = now
+    loadData()
+    return
+  }
+  if (pageGuardTimer) clearTimeout(pageGuardTimer)
+  pageGuardTimer = setTimeout(() => {
+    lastPageTriggerTime = Date.now()
+    loadData()
+  }, Math.max(pageGuardMs - elapsed, 0))
+}
+
 // 弹窗与表单
 const dialog = reactive({ visible: false, mode: 'edit' })
 const submitting = ref(false)
@@ -128,7 +149,12 @@ const rules = {
 
 // 加载列表
 async function loadData() {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer)
+    refreshTimer = null
+  }
   loading.value = true
+  const startedAt = Date.now()
   try {
     const payload = {
       pageNum: page.current,
@@ -143,7 +169,12 @@ async function loadData() {
   } catch (e) {
     ElMessage.error(e.message || '加载失败')
   } finally {
-    loading.value = false
+    const elapsed = Date.now() - startedAt
+    const remaining = minRefreshMs - elapsed
+    refreshTimer = setTimeout(() => {
+      loading.value = false
+      refreshTimer = null
+    }, remaining > 0 ? remaining : 0)
   }
 }
 
@@ -167,8 +198,8 @@ async function mockFetch() {
 
 function onSearch() { page.current = 1; loadData() }
 function onReset() { query.keyword=''; query.role=''; page.current=1; loadData() }
-function onSizeChange(sz) { page.size = sz; page.current = 1; loadData() }
-function onPageChange(p) { page.current = p; loadData() }
+function onSizeChange(sz) { page.size = sz; page.current = 1; requestPageLoad() }
+function onPageChange(p) { page.current = p; requestPageLoad() }
 
 // 编辑
 function onEdit(row) {

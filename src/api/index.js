@@ -4,6 +4,9 @@ export { fetchAdminAttractionsPage, fetchAdminAttractionById, createAdminAttract
 export { fetchRestaurantsPage, fetchRestaurantById } from './modules/restaurants.js'
 export { fetchAdminRestaurantsPage, fetchAdminRestaurantById, createAdminRestaurant, updateAdminRestaurant, deleteAdminRestaurant } from './modules/admin/restaurants.js'
 export { fetchAdminAccommodationsPage, fetchAdminAccommodationById, createAdminAccommodation, updateAdminAccommodation, deleteAdminAccommodation } from './modules/admin/accommodations.js' // 管理端-住宿分页+详情+增改删
+export * from './modules/admin/restaurantCategories.js'
+export * from './modules/admin/dishCategories.js'
+export * from './modules/admin/restaurantDishes.js'
 export { fetchAccommodationTypesPage, fetchAccommodationTypeById, createAccommodationType, updateAccommodationType, deleteAccommodationType } from './modules/accommodationTypes.js' // 住宿类型管理
 export { fetchAccommodationFacilitiesPage, fetchAccommodationFacilityById, createAccommodationFacility, updateAccommodationFacility, deleteAccommodationFacility } from './modules/accommodationFacilities.js' // 住宿设施管理
 export { fetchAccommodationsPage, fetchAccommodationById } from './modules/accommodations.js' // 用户端-住宿分页+详情

@@ -61,6 +61,27 @@ const loading = ref(false)
 const list = ref([])
 const total = ref(0)
 
+const minRefreshMs = 600
+const pageGuardMs = 600
+let refreshTimer = null
+let pageGuardTimer = null
+let lastPageTriggerTime = 0
+
+function requestPageLoad() {
+  const now = Date.now()
+  const elapsed = now - lastPageTriggerTime
+  if (!loading.value && elapsed >= pageGuardMs) {
+    lastPageTriggerTime = now
+    loadData()
+    return
+  }
+  if (pageGuardTimer) clearTimeout(pageGuardTimer)
+  pageGuardTimer = setTimeout(() => {
+    lastPageTriggerTime = Date.now()
+    loadData()
+  }, Math.max(pageGuardMs - elapsed, 0))
+}
+
 // 表单与弹窗
 const dialog = reactive({ visible: false, mode: 'create' })
 const formRef = ref()
@@ -74,7 +95,12 @@ const dialogTitle = computed(() => dialog.mode === 'create' ? '新增住宿类�
  * 加载分页数据
  */
 async function loadData() {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer)
+    refreshTimer = null
+  }
   loading.value = true
+  const startedAt = Date.now()
   try {
     const data = await fetchAccommodationTypesPage({ pageNum: page.current, pageSize: page.size, query })
     list.value = data?.list || data?.records || []
@@ -82,7 +108,12 @@ async function loadData() {
   } catch (e) {
     ElMessage.error(e.message || '加载失败')
   } finally {
-    loading.value = false
+    const elapsed = Date.now() - startedAt
+    const remaining = minRefreshMs - elapsed
+    refreshTimer = setTimeout(() => {
+      loading.value = false
+      refreshTimer = null
+    }, remaining > 0 ? remaining : 0)
   }
 }
 
@@ -100,13 +131,13 @@ function onReset() { query.name=''; page.current=1; loadData() }
  * 分页大小变化
  * @param {number} sz
  */
-function onSizeChange(sz) { page.size = sz; page.current = 1; loadData() }
+function onSizeChange(sz) { page.size = sz; page.current = 1; requestPageLoad() }
 
 /**
  * 页码变化
  * @param {number} p
  */
-function onPageChange(p) { page.current = p; loadData() }
+function onPageChange(p) { page.current = p; requestPageLoad() }
 
 /**
  * 打开新增弹窗
@@ -189,6 +220,7 @@ loadData()
 .admin-types-page { padding: 8px; }
 .block { margin-bottom: 12px; }
 .search-row { display: flex; gap: 8px; align-items: center; }
+.search-row :deep(.el-input) { width: 260px; }
 .pager { display: flex; justify-content: flex-end; margin-top: 12px; }
 .op-row { display: flex; flex-wrap: nowrap; gap: 8px; align-items: center; white-space: nowrap; }
 </style>

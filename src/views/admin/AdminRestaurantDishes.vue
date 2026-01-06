@@ -1,22 +1,42 @@
 <template>
   <div class="admin-restaurant-dishes">
     <el-card class="block" shadow="never">
-      <div class="search-row">
-        <el-input v-model="query.keyword" placeholder="关键词" clearable />
-        <el-select v-model="query.restaurantId" placeholder="所属餐厅" clearable filterable style="width: 200px">
-          <el-option v-for="r in restaurants" :key="r.id" :label="r.name" :value="r.id" />
-        </el-select>
-        <el-select v-model="query.categoryId" placeholder="菜品分类" clearable filterable style="width: 160px">
-          <el-option v-for="c in dishCategories" :key="c.id" :label="c.name" :value="c.id" />
-        </el-select>
-        <el-select v-model="query.isRecommended" placeholder="是否推荐" clearable style="width: 140px">
-          <el-option label="推荐" :value="1" />
-          <el-option label="不推荐" :value="0" />
-        </el-select>
-        <el-date-picker v-model="query.createRange" type="daterange" value-format="YYYY-MM-DD" range-separator="-" start-placeholder="创建开始" end-placeholder="创建结束" />
-        <el-button type="primary" @click="onSearch">搜索</el-button>
-        <el-button @click="onReset">重置</el-button>
-      </div>
+      <el-form :inline="true" :model="query" class="search-form">
+        <el-form-item label="菜品名称">
+          <el-input v-model="query.name" placeholder="菜品名称" clearable style="width: 140px" />
+        </el-form-item>
+        <el-form-item label="所属餐厅">
+          <el-select v-model="query.restaurantId" placeholder="全部" clearable filterable style="width: 140px">
+            <el-option v-for="r in restaurants" :key="r.id" :label="r.name" :value="r.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="菜品分类">
+          <el-select v-model="query.categoryId" placeholder="全部" clearable filterable style="width: 110px">
+            <el-option v-for="c in dishCategories" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="推荐">
+          <el-select v-model="query.isRecommended" placeholder="全部" clearable style="width: 100px">
+            <el-option label="推荐" :value="1" />
+            <el-option label="不推荐" :value="0" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="创建时间">
+          <el-date-picker
+            v-model="query.createRange"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            range-separator="-"
+            start-placeholder="开始"
+            end-placeholder="结束"
+            style="width: 240px"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="onSearch">搜索</el-button>
+          <el-button @click="onReset">重置</el-button>
+        </el-form-item>
+      </el-form>
     </el-card>
 
     <el-card class="block" shadow="never">
@@ -29,7 +49,7 @@
 
     <el-card class="block" shadow="never">
       <div class="table-wrap">
-        <el-table :data="list" border style="width: 100%" :fit="false" v-loading="loading" @selection-change="onSelectionChange">
+        <el-table :data="list" border style="width: 100%" v-loading="loading" @selection-change="onSelectionChange" @sort-change="onSortChange">
           <el-table-column type="selection" width="48" fixed="left" />
           <el-table-column prop="id" label="编号" width="100" sortable="custom" />
           <el-table-column prop="name" label="菜品名称" min-width="180" show-overflow-tooltip />
@@ -160,31 +180,22 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick } from 'vue'
+import { ref, reactive, computed, nextTick, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Close } from '@element-plus/icons-vue'
+import {
+  fetchAdminRestaurantsPage,
+  fetchDishCategoriesPage,
+  fetchRestaurantDishesPage,
+  createRestaurantDish,
+  updateRestaurantDish,
+  deleteRestaurantDish,
+  uploadSingleImage,
+} from '@/api'
 
-const restaurants = ref([
-  { id: 1, name: '梁平张鸭子总店' },
-  { id: 2, name: '双桂油渣家' },
-  { id: 3, name: '明达古镇客栈餐厅' },
-  { id: 4, name: '竹尖私房菜' },
-  { id: 5, name: '桂湖温泉餐厅' },
-  { id: 6, name: '云逸咖啡' },
-  { id: 7, name: '合兴农家院' },
-  { id: 8, name: '文化街小吃集市' },
-])
+const restaurants = ref([])
 
-const dishCategories = ref([
-  { id: 1, name: '招牌' },
-  { id: 2, name: '热菜' },
-  { id: 3, name: '汤类' },
-  { id: 4, name: '主食' },
-  { id: 5, name: '甜品' },
-  { id: 6, name: '凉菜' },
-  { id: 7, name: '饮品' },
-  { id: 8, name: '轻食' },
-])
+const dishCategories = ref([])
 
 const restaurantNameMap = computed(() => {
   const map = new Map()
@@ -199,7 +210,7 @@ const categoryNameMap = computed(() => {
 })
 
 const query = reactive({
-  keyword: '',
+  name: '',
   restaurantId: undefined,
   categoryId: undefined,
   isRecommended: undefined,
@@ -209,107 +220,28 @@ const query = reactive({
 const page = reactive({ current: 1, size: 10 })
 const loading = ref(false)
 
-const allRows = ref([
-  {
-    id: 1000,
-    restaurantId: 1,
-    categoryId: 1,
-    name: '招牌张鸭子',
-    description: '秘制卤味，色泽红亮，入口酥香',
-    price: 68,
-    imageUrl: 'https://example.com/images/dishes/1_zhangyazi.jpg',
-    isRecommended: 1,
-    sortOrder: 1,
-    createTime: '2026-01-01 10:00:00',
-    updateTime: '2026-01-01 10:00:00',
-  },
-  {
-    id: 1001,
-    restaurantId: 1,
-    categoryId: 3,
-    name: '鸭架酸菜汤',
-    description: '以张鸭子鸭架熬制的酸菜汤，酸爽开胃',
-    price: 18,
-    imageUrl: 'https://example.com/images/dishes/1_yajia_tang.jpg',
-    isRecommended: 0,
-    sortOrder: 2,
-    createTime: '2026-01-01 10:00:00',
-    updateTime: '2026-01-01 10:00:00',
-  },
-  {
-    id: 1002,
-    restaurantId: 2,
-    categoryId: 4,
-    name: '双桂油渣炒饭',
-    description: '颗粒分明，油渣香酥，双桂特色',
-    price: 22,
-    imageUrl: 'https://example.com/images/dishes/2_youzha_chaofan.jpg',
-    isRecommended: 1,
-    sortOrder: 1,
-    createTime: '2026-01-01 10:00:00',
-    updateTime: '2026-01-01 10:00:00',
-  },
-  {
-    id: 1003,
-    restaurantId: 3,
-    categoryId: 2,
-    name: '石锅焖排骨',
-    description: '慢火焖煮，入口脱骨',
-    price: 68,
-    imageUrl: 'https://example.com/images/dishes/3_shiguo_paigu.jpg',
-    isRecommended: 0,
-    sortOrder: 2,
-    createTime: '2026-01-01 10:00:00',
-    updateTime: '2026-01-01 10:00:00',
-  },
-  {
-    id: 1004,
-    restaurantId: 6,
-    categoryId: 5,
-    name: '焦糖布丁',
-    description: '经典甜点，适合作为下午茶',
-    price: 22,
-    imageUrl: 'https://example.com/images/dishes/6_caramel_pudding.jpg',
-    isRecommended: 0,
-    sortOrder: 3,
-    createTime: '2026-01-01 10:00:00',
-    updateTime: '2026-01-01 10:00:00',
-  },
-])
+const sort = reactive({ field: '', direction: 'DESC' })
 
-const filteredRows = computed(() => {
-  const keyword = String(query.keyword || '').trim().toLowerCase()
-  return allRows.value
-    .map(r => ({
-      ...r,
-      restaurantName: restaurantNameMap.value.get(r.restaurantId) || '',
-      categoryName: categoryNameMap.value.get(r.categoryId) || '',
-    }))
-    .filter(r => {
-      if (query.restaurantId != null && query.restaurantId !== '' && r.restaurantId !== query.restaurantId) return false
-      if (query.categoryId != null && query.categoryId !== '' && r.categoryId !== query.categoryId) return false
-      if (query.isRecommended != null && query.isRecommended !== '' && r.isRecommended !== query.isRecommended) return false
-      const range = Array.isArray(query.createRange) ? query.createRange : []
-      const start = range?.[0]
-      const end = range?.[1]
-      if (start || end) {
-        const datePart = String(r.createTime || '').slice(0, 10)
-        if (!datePart) return false
-        if (start && datePart < start) return false
-        if (end && datePart > end) return false
-      }
-      if (!keyword) return true
-      const hay = `${r.name} ${r.description || ''} ${r.restaurantName} ${r.categoryName}`.toLowerCase()
-      return hay.includes(keyword)
-    })
-})
+const 最短刷新毫秒 = 600
+const 分页保护毫秒 = 600
+let 刷新序号 = 0
+let 分页保护定时器 = null
+let 上次分页触发时间 = 0
 
-const total = computed(() => filteredRows.value.length)
+const allRawList = ref([])
+const allModeReady = ref(false)
+
+const rawList = ref([])
 const list = computed(() => {
-  const start = (page.current - 1) * page.size
-  const end = start + page.size
-  return filteredRows.value.slice(start, end)
+  const rMap = restaurantNameMap.value
+  const cMap = categoryNameMap.value
+  return (rawList.value || []).map(r => ({
+    ...r,
+    restaurantName: rMap.get(r.restaurantId) || '',
+    categoryName: cMap.get(r.categoryId) || '',
+  }))
 })
+const total = ref(0)
 
 const selectedRows = ref([])
 const onSelectionChange = (rows) => { selectedRows.value = rows }
@@ -380,24 +312,28 @@ function formatPrice(val) {
 
 function onSearch() {
   page.current = 1
+  refreshView()
 }
 
 function onReset() {
-  query.keyword = ''
+  query.name = ''
   query.restaurantId = undefined
   query.categoryId = undefined
   query.isRecommended = undefined
   query.createRange = []
   page.current = 1
+  refreshView()
 }
 
 function onSizeChange(sz) {
   page.size = sz
   page.current = 1
+  请求分页刷新()
 }
 
 function onPageChange(p) {
   page.current = p
+  请求分页刷新()
 }
 
 function resetForm() {
@@ -440,6 +376,8 @@ function onDialogClosed() {
 }
 
 function fillForm(row) {
+  imageState.file = null
+  imageState.previewUrl = ''
   form.id = row.id
   form.restaurantId = row.restaurantId
   form.categoryId = row.categoryId
@@ -477,106 +415,321 @@ function onFileInputChange(e) {
   clearImage()
   imageState.file = file
   imageState.previewUrl = URL.createObjectURL(file)
-  form.imageUrl = imageState.previewUrl
   e.target.value = ''
 }
 
-function nowText() {
-  const d = new Date()
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+function getCreateTimeRange() {
+  const range = Array.isArray(query.createRange) ? query.createRange : []
+  const start = range?.[0]
+  const end = range?.[1]
+  return {
+    createTimeStart: start || '',
+    createTimeEnd: end || '',
+  }
+}
+
+function buildPagePayload() {
+  const { createTimeStart, createTimeEnd } = getCreateTimeRange()
+  const q = {
+    categoryId: query.categoryId,
+    name: (query.name || '').trim() || undefined,
+    isRecommended: query.isRecommended,
+    createTimeStart,
+    createTimeEnd,
+  }
+  return {
+    pageNum: page.current,
+    pageSize: page.size,
+    sortField: sort.field,
+    sortDirection: sort.field ? sort.direction : undefined,
+    query: q,
+  }
+}
+
+function onSortChange({ prop, order }) {
+  if (!order) {
+    sort.field = ''
+    sort.direction = 'DESC'
+  } else {
+    sort.field = prop || ''
+    if (order === 'ascending') sort.direction = 'ASC'
+    else sort.direction = 'DESC'
+  }
+  page.current = 1
+  refreshView()
+}
+
+function 延时(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function 请求分页刷新() {
+  const 当前时间 = Date.now()
+  const 已过时间 = 当前时间 - 上次分页触发时间
+  if (!loading.value && 已过时间 >= 分页保护毫秒) {
+    上次分页触发时间 = 当前时间
+    refreshView()
+    return
+  }
+  if (分页保护定时器) clearTimeout(分页保护定时器)
+  分页保护定时器 = setTimeout(() => {
+    上次分页触发时间 = Date.now()
+    refreshView()
+  }, Math.max(分页保护毫秒 - 已过时间, 0))
+}
+
+async function loadRestaurants() {
+  try {
+    const data = await fetchAdminRestaurantsPage({
+      pageNum: 1,
+      pageSize: 200,
+      sortField: 'name',
+      sortDirection: 'ASC',
+      query: {},
+    })
+    restaurants.value = data?.list || data?.records || []
+  } catch (e) {
+    restaurants.value = []
+  }
+}
+
+async function loadDishCategories() {
+  try {
+    const data = await fetchDishCategoriesPage({
+      pageNum: 1,
+      pageSize: 200,
+      sortField: 'sortOrder',
+      sortDirection: 'ASC',
+      query: {},
+    })
+    dishCategories.value = data?.list || data?.records || []
+  } catch (e) {
+    dishCategories.value = []
+  }
+}
+
+function getDatePart(val) {
+  if (!val) return ''
+  return String(val).slice(0, 10)
+}
+
+function compareMaybe(a, b) {
+  if (a == null && b == null) return 0
+  if (a == null) return -1
+  if (b == null) return 1
+  if (typeof a === 'number' && typeof b === 'number') return a - b
+  return String(a).localeCompare(String(b))
+}
+
+function applyAllMode() {
+  const keyword = String(query.name || '').trim().toLowerCase()
+  const categoryId = query.categoryId
+  const isRecommended = query.isRecommended
+  const range = getCreateTimeRange()
+  const start = range.createTimeStart
+  const end = range.createTimeEnd
+
+  let rows = allRawList.value.slice()
+
+  if (keyword) {
+    rows = rows.filter(r => String(r.name || '').toLowerCase().includes(keyword))
+  }
+  if (categoryId !== undefined && categoryId !== null && categoryId !== '') {
+    rows = rows.filter(r => r.categoryId === categoryId)
+  }
+  if (isRecommended !== undefined && isRecommended !== null && isRecommended !== '') {
+    rows = rows.filter(r => r.isRecommended === isRecommended)
+  }
+  if (start || end) {
+    rows = rows.filter(r => {
+      const d = getDatePart(r.createTime)
+      if (!d) return false
+      if (start && d < start) return false
+      if (end && d > end) return false
+      return true
+    })
+  }
+
+  if (sort.field) {
+    const dir = sort.direction === 'ASC' ? 1 : -1
+    const field = sort.field
+    rows.sort((ra, rb) => compareMaybe(ra?.[field], rb?.[field]) * dir)
+  }
+
+  total.value = rows.length
+  const startIdx = (page.current - 1) * page.size
+  const endIdx = startIdx + page.size
+  rawList.value = rows.slice(startIdx, endIdx)
+}
+
+async function ensureAllFetched(force = false) {
+  if (!force && allModeReady.value) return
+  if (restaurants.value.length === 0) {
+    await loadRestaurants()
+  }
+  if (restaurants.value.length === 0) {
+    allRawList.value = []
+    allModeReady.value = true
+    return
+  }
+  const payload = {
+    pageNum: 1,
+    pageSize: 200,
+    sortField: sort.field,
+    sortDirection: sort.direction,
+    query: {},
+  }
+
+  const tasks = restaurants.value.map(r => fetchRestaurantDishesPage(r.id, payload))
+  const results = await Promise.allSettled(tasks)
+  const merged = []
+  for (const res of results) {
+    if (res.status !== 'fulfilled') continue
+    const data = res.value
+    const rows = data?.list || data?.records || []
+    merged.push(...rows)
+  }
+  allRawList.value = merged
+  allModeReady.value = true
+}
+
+async function loadData() {
+  try {
+    const payload = buildPagePayload()
+    const data = await fetchRestaurantDishesPage(query.restaurantId, payload)
+    rawList.value = data?.list || data?.records || []
+    total.value = data?.total ?? data?.totalRecords ?? 0
+  } catch (e) {
+    rawList.value = []
+    total.value = 0
+    ElMessage.error(e.message || '加载失败')
+  } finally {}
+}
+
+async function refreshView() {
+  const 当前序号 = ++刷新序号
+  const 开始时间 = Date.now()
+  loading.value = true
+  try {
+    selectedRows.value = []
+    if (query.restaurantId) {
+      await loadData()
+    } else {
+      await ensureAllFetched(false)
+      applyAllMode()
+    }
+  } finally {
+    const 剩余时间 = 最短刷新毫秒 - (Date.now() - 开始时间)
+    if (剩余时间 > 0) await 延时(剩余时间)
+    if (当前序号 === 刷新序号) loading.value = false
+  }
+}
+
+async function resolveSubmitImageUrl() {
+  if (imageState.file) {
+    const urls = await uploadSingleImage(imageState.file)
+    const url = Array.isArray(urls) ? urls[0] : urls
+    if (!url) throw new Error('图片上传失败')
+    return url
+  }
+  return form.imageUrl || ''
 }
 
 async function onSubmitCreate() {
   try {
     await formRef.value?.validate()
-    if (!form.imageUrl) {
+    if (!imageState.file && !form.imageUrl) {
       ElMessage.warning('请上传菜品图片')
       return
     }
-    const id = nextId()
-    const t = nowText()
-    const row = {
-      id,
-      restaurantId: form.restaurantId,
+    const imageUrl = await resolveSubmitImageUrl()
+    const payload = {
       categoryId: form.categoryId,
       name: form.name,
       description: form.description,
       price: Number(form.price),
-      imageUrl: form.imageUrl,
+      imageUrl,
       isRecommended: form.isRecommended,
       sortOrder: Number(form.sortOrder),
-      createTime: t,
-      updateTime: t,
     }
-    allRows.value = [row, ...allRows.value]
-    ElMessage.success('已添加（本地模拟）')
+    await createRestaurantDish(form.restaurantId, payload)
+    ElMessage.success('新增成功')
     dialog.visible = false
+    allModeReady.value = false
+    refreshView()
   } catch (_) {}
 }
 
 async function onSubmitEdit() {
   try {
     await formRef.value?.validate()
-    if (!form.imageUrl) {
+    if (!imageState.file && !form.imageUrl) {
       ElMessage.warning('请上传菜品图片')
       return
     }
-    const t = nowText()
-    allRows.value = allRows.value.map(r => {
-      if (r.id !== form.id) return r
-      return {
-        ...r,
-        restaurantId: form.restaurantId,
-        categoryId: form.categoryId,
-        name: form.name,
-        description: form.description,
-        price: Number(form.price),
-        imageUrl: form.imageUrl,
-        isRecommended: form.isRecommended,
-        sortOrder: Number(form.sortOrder),
-        updateTime: t,
-      }
-    })
-    ElMessage.success('已保存（本地模拟）')
+    const imageUrl = await resolveSubmitImageUrl()
+    const payload = {
+      categoryId: form.categoryId,
+      name: form.name,
+      description: form.description,
+      price: Number(form.price),
+      imageUrl,
+      isRecommended: form.isRecommended,
+      sortOrder: Number(form.sortOrder),
+    }
+    await updateRestaurantDish(form.restaurantId, form.id, payload)
+    ElMessage.success('保存成功')
     dialog.visible = false
+    allModeReady.value = false
+    refreshView()
   } catch (_) {}
-}
-
-function nextId() {
-  const max = allRows.value.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)
-  return max + 1
 }
 
 async function onDelete(row) {
   try {
     await ElMessageBox.confirm(`确认删除「${row.name}」？`, '提示', { type: 'warning' })
-    if (row.imageUrl && String(row.imageUrl).startsWith('blob:')) {
-      URL.revokeObjectURL(row.imageUrl)
-    }
-    allRows.value = allRows.value.filter(r => r.id !== row.id)
+    const restaurantId = row.restaurantId || query.restaurantId
+    if (!restaurantId) return
+    await deleteRestaurantDish(restaurantId, row.id)
+    ElMessage.success('删除成功')
     selectedRows.value = selectedRows.value.filter(r => r.id !== row.id)
-    ElMessage.success('已删除（本地模拟）')
-    if (page.current > 1 && list.value.length === 0) page.current -= 1
+    if (page.current > 1 && rawList.value.length === 1) page.current -= 1
+    allModeReady.value = false
+    refreshView()
   } catch (_) {}
 }
 
 async function onBatchDelete() {
-  const ids = new Set(selectedRows.value.map(r => r.id))
-  if (ids.size === 0) return
+  const rows = selectedRows.value.slice()
+  if (rows.length === 0) return
   try {
-    await ElMessageBox.confirm(`确认删除选中的 ${ids.size} 条记录？`, '提示', { type: 'warning' })
-    allRows.value.forEach(r => {
-      if (ids.has(r.id) && r.imageUrl && String(r.imageUrl).startsWith('blob:')) {
-        URL.revokeObjectURL(r.imageUrl)
-      }
-    })
-    allRows.value = allRows.value.filter(r => !ids.has(r.id))
+    await ElMessageBox.confirm(`确认删除选中的 ${rows.length} 条记录？`, '提示', { type: 'warning' })
+    for (const r of rows) {
+      const restaurantId = r.restaurantId || query.restaurantId
+      if (!restaurantId) continue
+      await deleteRestaurantDish(restaurantId, r.id)
+    }
     selectedRows.value = []
-    ElMessage.success('已批量删除（本地模拟）')
-    if (page.current > 1 && list.value.length === 0) page.current -= 1
+    ElMessage.success('批量删除成功')
+    if (page.current > 1 && rawList.value.length === rows.length) page.current -= 1
+    allModeReady.value = false
+    refreshView()
   } catch (_) {}
 }
+
+watch(
+  () => query.restaurantId,
+  () => {
+    page.current = 1
+    refreshView()
+  }
+)
+
+onMounted(async () => {
+  await Promise.all([loadRestaurants(), loadDishCategories()])
+  allModeReady.value = false
+  refreshView()
+})
 </script>
 
 <style scoped>
@@ -588,11 +741,9 @@ async function onBatchDelete() {
   margin-bottom: 12px;
 }
 
-.search-row {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  align-items: center;
+.search-form .el-form-item {
+  margin-right: 16px;
+  margin-bottom: 12px;
 }
 
 .action-row {

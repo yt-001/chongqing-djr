@@ -2,20 +2,32 @@
   <div class="admin-accommodations">
     <!-- 顶部：搜索栏 -->
     <el-card class="block" shadow="never">
-      <div class="search-row">
-        <el-input v-model="query.keyword" placeholder="关键词" clearable />
-        <el-input v-model="query.name" placeholder="住宿名称" clearable />
-        <el-input v-model="query.location" placeholder="地理位置" clearable />
-        <el-select v-model="query.type" placeholder="住宿类型" clearable>
-          <el-option label="农家乐" value="农家乐" />
-          <el-option label="民宿" value="民宿" />
-          <el-option label="酒店" value="酒店" />
-        </el-select>
-        <el-date-picker v-model="query.createTime" type="date" value-format="YYYY-MM-DD" placeholder="创建时间" />
-        <el-date-picker v-model="query.updateTime" type="date" value-format="YYYY-MM-DD" placeholder="更新时间" />
-        <el-button type="primary" @click="onSearch">搜索</el-button>
-        <el-button @click="onReset">重置</el-button>
-      </div>
+      <el-form :inline="true" :model="query" class="search-form">
+        <el-form-item label="关键词">
+          <el-input v-model="query.keyword" placeholder="关键词" clearable style="width: 140px" />
+        </el-form-item>
+        <el-form-item label="住宿名称">
+          <el-input v-model="query.name" placeholder="住宿名称" clearable style="width: 140px" />
+        </el-form-item>
+        <el-form-item label="地理位置">
+          <el-input v-model="query.location" placeholder="地理位置" clearable style="width: 140px" />
+        </el-form-item>
+        <el-form-item label="住宿类型">
+          <el-select v-model="query.typeId" placeholder="住宿类型" clearable style="width: 120px">
+            <el-option v-for="t in accommodationTypeOptions" :key="t.id" :label="t.name" :value="t.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="创建时间">
+          <el-date-picker v-model="query.createTime" type="date" value-format="YYYY-MM-DD" placeholder="创建时间" style="width: 140px" />
+        </el-form-item>
+        <el-form-item label="更新时间">
+          <el-date-picker v-model="query.updateTime" type="date" value-format="YYYY-MM-DD" placeholder="更新时间" style="width: 140px" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="onSearch">搜索</el-button>
+          <el-button @click="onReset">重置</el-button>
+        </el-form-item>
+      </el-form>
     </el-card>
 
     <!-- 中部：操作按钮 -->
@@ -30,11 +42,13 @@
     <!-- 表格 + 分页 -->
     <el-card class="block" shadow="never">
       <div class="table-wrap">
-        <el-table :data="list" border style="width: 100%" :fit="false" v-loading="loading" @selection-change="onSelectionChange">
+        <el-table :data="list" border style="width: 100%" v-loading="loading" @selection-change="onSelectionChange">
           <el-table-column type="selection" width="48" fixed="left" />
           <el-table-column prop="id" label="编号" width="100" sortable="custom" />
           <el-table-column prop="name" label="住宿名称" min-width="200" show-overflow-tooltip />
-          <el-table-column prop="type" label="类型" width="120" />
+          <el-table-column label="类型" width="120">
+            <template #default="{ row }">{{ getAccommodationTypeText(row) }}</template>
+          </el-table-column>
           <el-table-column prop="location" label="地理位置" min-width="180" show-overflow-tooltip />
           <el-table-column prop="pricePerNight" label="每晚价格" width="120" />
           <el-table-column prop="capacity" label="可容纳人数" width="120" />
@@ -64,11 +78,9 @@
             <el-form-item label="住宿名称" class="col col-2" prop="name" required>
               <el-input v-model="form.name" placeholder="请输入住宿名称" />
             </el-form-item>
-            <el-form-item label="类型" class="col col-1" prop="type" required>
-              <el-select v-model="form.type" placeholder="请选择类型">
-                <el-option label="农家乐" value="农家乐" />
-                <el-option label="民宿" value="民宿" />
-                <el-option label="酒店" value="酒店" />
+            <el-form-item label="类型" class="col col-1" prop="typeId" required>
+              <el-select v-model="form.typeId" placeholder="请选择类型">
+                <el-option v-for="t in accommodationTypeOptions" :key="t.id" :label="t.name" :value="t.id" />
               </el-select>
             </el-form-item>
           </div>
@@ -175,12 +187,12 @@
 import { ref, reactive, computed, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { View, Close } from '@element-plus/icons-vue'
-import { fetchAdminAccommodationsPage, fetchAdminAccommodationById, createAdminAccommodation, updateAdminAccommodation, deleteAdminAccommodation } from '@/api'
+import { fetchAdminAccommodationsPage, fetchAdminAccommodationById, createAdminAccommodation, updateAdminAccommodation, deleteAdminAccommodation, fetchAccommodationTypesPage } from '@/api'
 import { uploadMultipleImages } from '@/api/modules/upload'
 import { processImageData, formatImageDataForSubmit } from '@/utils/imageUtils'
 
 // 搜索条件
-const query = reactive({ keyword: '', createTime: '', updateTime: '', name: '', location: '', type: '' })
+const query = reactive({ keyword: '', createTime: '', updateTime: '', name: '', location: '', typeId: null })
 
 // 分页/排序
 const page = reactive({ current: 1, size: 10 })
@@ -190,6 +202,28 @@ const sort = reactive({ field: '', direction: 'DESC' })
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
+
+const accommodationTypeOptions = ref([])
+const accommodationTypeNameById = computed(() => {
+  const map = new Map()
+  for (const item of accommodationTypeOptions.value) {
+    if (item?.id !== undefined && item?.id !== null) {
+      map.set(item.id, item?.name || '')
+    }
+  }
+  return map
+})
+
+function getAccommodationTypeText(row) {
+  const name = row?.typeName
+  if (name) return name
+  const id = row?.typeId ?? row?.type_id ?? row?.type
+  if (id === undefined || id === null || id === '') return ''
+  const resolved = accommodationTypeNameById.value.get(id)
+  if (resolved) return resolved
+  if (typeof id === 'string') return id
+  return ''
+}
 
 // 弹窗/表单
 const dialog = reactive({ visible: false, mode: 'create' }) // 'create' | 'view' | 'edit'
@@ -204,7 +238,7 @@ const originalForm = ref(null)
 const rules = {
   name: [{ required: true, message: '请输入住宿名称', trigger: 'blur' }],
   description: [{ required: true, message: '请输入描述', trigger: 'blur' }],
-  type: [{ required: true, message: '请选择住宿类型', trigger: 'change' }],
+  typeId: [{ required: true, message: '请选择住宿类型', trigger: 'change' }],
   location: [{ required: true, message: '请输入地理位置', trigger: 'blur' }],
   latitude: [
     { validator: validateNumber('纬度'), trigger: 'blur' }
@@ -225,7 +259,7 @@ const form = reactive({
   id: '',
   name: '',
   description: '',
-  type: '',
+  typeId: null,
   location: '',
   latitude: '',
   longitude: '',
@@ -286,9 +320,35 @@ const selectedRows = ref([])
 const onSelectionChange = (rows) => { selectedRows.value = rows }
 const singleDeletable = computed(() => selectedRows.value.length === 1)
 
+const minRefreshMs = 600
+const pageGuardMs = 600
+let refreshTimer = null
+let pageGuardTimer = null
+let lastPageTriggerTime = 0
+
+function requestPageLoad() {
+  const now = Date.now()
+  const elapsed = now - lastPageTriggerTime
+  if (!loading.value && elapsed >= pageGuardMs) {
+    lastPageTriggerTime = now
+    loadData()
+    return
+  }
+  if (pageGuardTimer) clearTimeout(pageGuardTimer)
+  pageGuardTimer = setTimeout(() => {
+    lastPageTriggerTime = Date.now()
+    loadData()
+  }, Math.max(pageGuardMs - elapsed, 0))
+}
+
 // 拉取列表
 async function loadData() {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer)
+    refreshTimer = null
+  }
   loading.value = true
+  const startedAt = Date.now()
   try {
     const payload = {
       pageNum: page.current,
@@ -303,14 +363,19 @@ async function loadData() {
   } catch (e) {
     ElMessage.error(e.message || '加载失败')
   } finally {
-    loading.value = false
+    const elapsed = Date.now() - startedAt
+    const remaining = minRefreshMs - elapsed
+    refreshTimer = setTimeout(() => {
+      loading.value = false
+      refreshTimer = null
+    }, remaining > 0 ? remaining : 0)
   }
 }
 
 function onSearch() { page.current = 1; loadData() }
-function onReset() { query.keyword='';query.createTime='';query.updateTime='';query.name='';query.location='';query.type='';page.current=1;loadData() }
-function onSizeChange(sz) { page.size = sz; page.current = 1; loadData() }
-function onPageChange(p) { page.current = p; loadData() }
+function onReset() { query.keyword='';query.createTime='';query.updateTime='';query.name='';query.location='';query.typeId=null;page.current=1;loadData() }
+function onSizeChange(sz) { page.size = sz; page.current = 1; requestPageLoad() }
+function onPageChange(p) { page.current = p; requestPageLoad() }
 
 function resetForm() {
   // 清理图片数据
@@ -320,7 +385,7 @@ function resetForm() {
   form.id = ''
   form.name = ''
   form.description = ''
-  form.type = ''
+  form.typeId = null
   form.location = ''
   form.latitude = ''
   form.longitude = ''
@@ -379,7 +444,7 @@ async function onView(row) {
     form.id = data?.id ?? row.id
     form.name = data?.name ?? ''
     form.description = data?.description ?? ''
-    form.type = data?.type ?? ''
+    form.typeId = normalizeTypeId(data)
     form.location = data?.location ?? ''
     form.latitude = data?.latitude ?? ''
     form.longitude = data?.longitude ?? ''
@@ -438,7 +503,7 @@ function buildDiffPayload() {
       id: form.id,
       name: form.name,
       description: form.description,
-      type: form.type,
+      typeId: form.typeId,
       location: form.location,
       latitude: form.latitude,
       longitude: form.longitude,
@@ -450,7 +515,7 @@ function buildDiffPayload() {
       images: form.images,
     }
   }
-  const editable = ['name','description','type','location','latitude','longitude','pricePerNight','capacity','facilities','contactPhone','coverImage','images']
+  const editable = ['name','description','typeId','location','latitude','longitude','pricePerNight','capacity','facilities','contactPhone','coverImage','images']
   const diff = { id: form.id }
   let changed = false
   for (const k of editable) {
@@ -502,7 +567,7 @@ function onSubmitCreate() {
       const payload = {
         name: form.name,
         description: form.description,
-        type: form.type,
+        typeId: form.typeId,
         location: form.location,
         latitude: form.latitude,
         longitude: form.longitude,
@@ -629,15 +694,40 @@ function clearImages() {
   clearImageData()
 }
 
+function normalizeTypeId(data) {
+  const raw = data?.typeId ?? data?.type_id ?? data?.type
+  if (raw === undefined || raw === null || raw === '') return null
+  if (typeof raw === 'number') return raw
+  const asNumber = Number(raw)
+  if (!Number.isNaN(asNumber) && String(asNumber) === String(raw).trim()) return asNumber
+  const name = data?.typeName ?? (typeof raw === 'string' ? raw : '')
+  if (!name) return null
+  const hit = accommodationTypeOptions.value.find(t => t?.name === name)
+  return hit?.id ?? null
+}
+
+async function loadAccommodationTypeOptions() {
+  try {
+    const data = await fetchAccommodationTypesPage({ pageNum: 1, pageSize: 1000, query: {} })
+    accommodationTypeOptions.value = data?.list || data?.records || []
+  } catch {
+    accommodationTypeOptions.value = []
+  }
+}
+
 // 首次加载
-loadData()
+async function init() {
+  await loadAccommodationTypeOptions()
+  loadData()
+}
+init()
 </script>
 
 <style scoped>
-.search-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.search-row :deep(.el-input),
-.search-row :deep(.el-select),
-.search-row :deep(.el-date-editor) { width: 240px; }
+.search-form .el-form-item {
+  margin-right: 16px;
+  margin-bottom: 12px;
+}
 
 .admin-accommodations .block { margin-bottom: 16px; }
 .action-row { display: flex; gap: 8px; }

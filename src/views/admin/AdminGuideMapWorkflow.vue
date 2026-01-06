@@ -1,8 +1,8 @@
 <template>
   <div class="workflow-container">
-    <div class="toolbar">
+      <div class="toolbar">
       <div class="left-tools">
-        <el-button @click="goBack" icon="ArrowLeft">返回</el-button>
+        <el-button @click="goBack" :icon="ArrowLeft">返回</el-button>
         <span class="title">旅游路线编辑</span>
       </div>
       <div class="right-tools">
@@ -807,11 +807,15 @@ const confirmSaveRoute = async () => {
       }
       finalRouteId = newId
     } else {
-      const currentEditStatus = routeDetail.value?.editStatus
-      const nextEditStatus = typeof currentEditStatus === 'number' || typeof currentEditStatus === 'bigint'
-        ? (currentEditStatus === 0 ? 1 : currentEditStatus)
-        : 1
-      await updateGuideRoute(currentRouteId, { ...payload, editStatus: nextEditStatus })
+      await updateGuideRoute(currentRouteId, { ...payload, editStatus: 1 })
+      if (routeDetail.value) {
+        routeDetail.value = {
+          ...routeDetail.value,
+          ...payload,
+          status: 1,
+          editStatus: 1
+        }
+      }
     }
 
     await doSaveWorkflow(finalRouteId)

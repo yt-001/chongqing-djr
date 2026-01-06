@@ -2,15 +2,24 @@
   <div class="admin-restaurants">
     <!-- 顶部：搜索栏 -->
     <el-card class="block" shadow="never">
-      <div class="search-row">
-        <el-input v-model="query.keyword" placeholder="关键词" clearable />
-        <el-input v-model="query.name" placeholder="餐厅名称" clearable />
-        <el-input v-model="query.location" placeholder="地理位置" clearable />
-        <el-date-picker v-model="query.createTime" type="date" value-format="YYYY-MM-DD" placeholder="创建时间" />
-        <el-date-picker v-model="query.updateTime" type="date" value-format="YYYY-MM-DD" placeholder="更新时间" />
-        <el-button type="primary" @click="onSearch">搜索</el-button>
-        <el-button @click="onReset">重置</el-button>
-      </div>
+      <el-form :inline="true" :model="query" class="search-form">
+        <el-form-item label="餐厅名称">
+          <el-input v-model="query.name" placeholder="餐厅名称" clearable style="width: 140px" />
+        </el-form-item>
+        <el-form-item label="地理位置">
+          <el-input v-model="query.location" placeholder="地理位置" clearable style="width: 140px" />
+        </el-form-item>
+        <el-form-item label="创建时间">
+          <el-date-picker v-model="query.createTime" type="date" value-format="YYYY-MM-DD" placeholder="创建时间" style="width: 140px" />
+        </el-form-item>
+        <el-form-item label="更新时间">
+          <el-date-picker v-model="query.updateTime" type="date" value-format="YYYY-MM-DD" placeholder="更新时间" style="width: 140px" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="onSearch">搜索</el-button>
+          <el-button @click="onReset">重置</el-button>
+        </el-form-item>
+      </el-form>
     </el-card>
 
     <!-- 中部：操作按钮 -->
@@ -25,7 +34,7 @@
     <!-- 表格 + 分页 -->
     <el-card class="block" shadow="never">
       <div class="table-wrap">
-        <el-table :data="list" border style="width: 100%" :fit="false" v-loading="loading" @selection-change="onSelectionChange">
+        <el-table :data="listView" border style="width: 100%" v-loading="loading" @selection-change="onSelectionChange" @sort-change="onSortChange">
           <el-table-column type="selection" width="48" fixed="left" />
           <el-table-column prop="id" label="编号" width="100" sortable="custom" />
           <el-table-column prop="name" label="餐厅名称" min-width="200" show-overflow-tooltip />
@@ -33,7 +42,7 @@
           <el-table-column prop="location" label="地理位置" min-width="180" show-overflow-tooltip />
           <el-table-column prop="openHours" label="营业时间" width="140" />
           <el-table-column prop="priceRange" label="价格区间" width="140" />
-          <el-table-column prop="specialty" label="招牌菜" width="160" show-overflow-tooltip />
+          <el-table-column prop="specialtyName" label="招牌菜" width="160" show-overflow-tooltip />
           <el-table-column prop="rating" label="推荐指数" width="120" />
           <el-table-column prop="contactPhone" label="联系电话" width="150" />
           <el-table-column prop="createTime" label="创建时间" width="180" />
@@ -75,7 +84,18 @@
               <el-input v-model="form.priceRange" placeholder="如：￥50-100" />
             </el-form-item>
             <el-form-item label="招牌菜" class="col col-1" prop="specialty" required>
-              <el-input v-model="form.specialty" placeholder="请输入招牌菜" />
+              <el-select
+                v-model="form.specialty"
+                placeholder="请选择招牌菜"
+                filterable
+                clearable
+                style="width: 100%"
+                no-data-text="暂无菜品"
+                :loading="dishOptionsLoading"
+                :disabled="dialog.mode === 'create'"
+              >
+                <el-option v-for="d in dishOptions" :key="d.id" :label="d.name" :value="d.id" />
+              </el-select>
             </el-form-item>
           </div>
 
@@ -157,12 +177,12 @@
 import { ref, reactive, computed, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { View, Close } from '@element-plus/icons-vue'
-import { fetchAdminRestaurantsPage, fetchAdminRestaurantById, createAdminRestaurant, updateAdminRestaurant, deleteAdminRestaurant } from '@/api'
+import { fetchAdminRestaurantsPage, fetchAdminRestaurantById, createAdminRestaurant, updateAdminRestaurant, deleteAdminRestaurant, fetchRestaurantDishOptions } from '@/api'
 import { uploadMultipleImages } from '@/api/modules/upload'
 import { processImageData, formatImageDataForSubmit } from '@/utils/imageUtils'
 
 // 搜索条件
-const query = reactive({ keyword: '', createTime: '', updateTime: '', name: '', location: '' })
+const query = reactive({ createTime: '', updateTime: '', name: '', location: '' })
 
 // 分页/排序
 const page = reactive({ current: 1, size: 10 })
@@ -171,6 +191,12 @@ const sort = reactive({ field: '', direction: 'DESC' })
 // 列表
 const loading = ref(false)
 const list = ref([])
+const listView = computed(() => {
+  return (list.value || []).map(r => ({
+    ...r,
+    specialtyName: getSpecialtyName(r?.id, r?.specialty),
+  }))
+})
 const total = ref(0)
 
 // 弹窗/表单
@@ -181,6 +207,63 @@ const dialogKey = ref(0)
 const formRef = ref()
 const fileInputRef = ref()
 const originalForm = ref(null)
+
+const dishOptions = ref([])
+const dishOptionsLoading = ref(false)
+let dishOptionsSeq = 0
+const restaurantDishOptionsCache = ref(new Map())
+let preloadSeq = 0
+
+async function loadDishOptions(restaurantId) {
+  if (!restaurantId) {
+    dishOptions.value = []
+    return
+  }
+
+  const seq = ++dishOptionsSeq
+  dishOptionsLoading.value = true
+  try {
+    const data = await fetchRestaurantDishOptions(restaurantId)
+    if (seq !== dishOptionsSeq) return
+    dishOptions.value = Array.isArray(data) ? data : (data?.list || data?.records || [])
+  } catch (_) {
+    if (seq !== dishOptionsSeq) return
+    dishOptions.value = []
+  } finally {
+    if (seq === dishOptionsSeq) dishOptionsLoading.value = false
+  }
+}
+
+function getSpecialtyName(restaurantId, specialtyId) {
+  const options = restaurantDishOptionsCache.value.get(restaurantId)
+  const hit = Array.isArray(options) ? options.find(o => o?.id === specialtyId) : null
+  return hit?.name || (specialtyId ?? '')
+}
+
+async function preloadDishOptionsForRows(rows) {
+  const ids = Array.from(new Set((rows || []).map(r => r?.id).filter(Boolean)))
+  const seq = ++preloadSeq
+
+  for (const restaurantId of ids) {
+    if (seq !== preloadSeq) return
+    if (restaurantDishOptionsCache.value.has(restaurantId)) continue
+    try {
+      const data = await fetchRestaurantDishOptions(restaurantId)
+      if (seq !== preloadSeq) return
+      const options = Array.isArray(data) ? data : (data?.list || data?.records || [])
+      restaurantDishOptionsCache.value.set(restaurantId, options)
+    } catch (_) {
+      if (seq !== preloadSeq) return
+      restaurantDishOptionsCache.value.set(restaurantId, [])
+    }
+  }
+}
+
+function validateSpecialty(_rule, value, callback) {
+  if (dialog.mode === 'create') return callback()
+  if (value === undefined || value === null || value === '') return callback(new Error('请选择招牌菜'))
+  callback()
+}
 
 // 校验规则
 const rules = {
@@ -199,7 +282,7 @@ const rules = {
   images: [{ required: true, message: '请输入图片JSON数组', trigger: 'blur' }],
   openHours: [{ required: true, message: '请输入营业时间', trigger: 'blur' }],
   priceRange: [{ required: true, message: '请输入价格区间', trigger: 'blur' }],
-  specialty: [{ required: true, message: '请输入招牌菜', trigger: 'blur' }],
+  specialty: [{ validator: validateSpecialty, trigger: 'change' }],
   contactPhone: [
     { required: true, message: '请输入联系电话', trigger: 'blur' },
     { validator: validatePhone, trigger: 'blur' }
@@ -222,7 +305,7 @@ const form = reactive({
   images: '',
   openHours: '',
   priceRange: '',
-  specialty: '',
+  specialty: undefined,
   contactPhone: '',
   rating: '',
   createTime: '',
@@ -276,9 +359,35 @@ const selectedRows = ref([])
 const onSelectionChange = (rows) => { selectedRows.value = rows }
 const singleDeletable = computed(() => selectedRows.value.length === 1)
 
+const minRefreshMs = 600
+const pageGuardMs = 600
+let refreshTimer = null
+let pageGuardTimer = null
+let lastPageTriggerTime = 0
+
+function requestPageLoad() {
+  const now = Date.now()
+  const elapsed = now - lastPageTriggerTime
+  if (!loading.value && elapsed >= pageGuardMs) {
+    lastPageTriggerTime = now
+    loadData()
+    return
+  }
+  if (pageGuardTimer) clearTimeout(pageGuardTimer)
+  pageGuardTimer = setTimeout(() => {
+    lastPageTriggerTime = Date.now()
+    loadData()
+  }, Math.max(pageGuardMs - elapsed, 0))
+}
+
 // 拉取列表
 async function loadData() {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer)
+    refreshTimer = null
+  }
   loading.value = true
+  const startedAt = Date.now()
   try {
     const payload = {
       pageNum: page.current,
@@ -290,17 +399,35 @@ async function loadData() {
     const data = await fetchAdminRestaurantsPage(payload)
     list.value = data?.list || data?.records || []
     total.value = data?.total ?? data?.totalRecords ?? 0
+    preloadDishOptionsForRows(list.value)
   } catch (e) {
     ElMessage.error(e.message || '加载失败')
   } finally {
-    loading.value = false
+    const elapsed = Date.now() - startedAt
+    const remaining = minRefreshMs - elapsed
+    refreshTimer = setTimeout(() => {
+      loading.value = false
+      refreshTimer = null
+    }, remaining > 0 ? remaining : 0)
   }
 }
 
 function onSearch() { page.current = 1; loadData() }
-function onReset() { query.keyword='';query.createTime='';query.updateTime='';query.name='';query.location='';page.current=1;loadData() }
-function onSizeChange(sz) { page.size = sz; page.current = 1; loadData() }
-function onPageChange(p) { page.current = p; loadData() }
+function onReset() { query.createTime='';query.updateTime='';query.name='';query.location='';page.current=1;loadData() }
+function onSizeChange(sz) { page.size = sz; page.current = 1; requestPageLoad() }
+function onPageChange(p) { page.current = p; requestPageLoad() }
+
+function onSortChange({ prop, order }) {
+  if (!order) {
+    sort.field = ''
+    sort.direction = 'DESC'
+  } else {
+    sort.field = prop || ''
+    sort.direction = order === 'ascending' ? 'ASC' : 'DESC'
+  }
+  page.current = 1
+  loadData()
+}
 
 function resetForm() {
   // 清理图片数据
@@ -317,7 +444,7 @@ function resetForm() {
   form.images = ''
   form.openHours = ''
   form.priceRange = ''
-  form.specialty = ''
+  form.specialty = undefined
   form.contactPhone = ''
   form.rating = ''
   form.createTime = ''
@@ -348,6 +475,8 @@ function clearImageData() {
 function onAdd() {
   dialog.mode = 'create'
   detailSeq++
+  dishOptionsSeq++
+  dishOptions.value = []
   resetForm()
   originalForm.value = null
   detailLoading.value = false
@@ -362,6 +491,7 @@ async function onView(row) {
   detailLoading.value = true
   const seq = ++detailSeq
   try {
+    loadDishOptions(row.id)
     const data = await fetchAdminRestaurantById(row.id)
     if (seq !== detailSeq || dialog.mode !== 'view') return
     
@@ -376,7 +506,7 @@ async function onView(row) {
     form.images = data?.images ?? ''
     form.openHours = data?.openHours ?? ''
     form.priceRange = data?.priceRange ?? ''
-    form.specialty = data?.specialty ?? ''
+    form.specialty = data?.specialty ?? undefined
     form.contactPhone = data?.contactPhone ?? ''
     form.rating = data?.rating ?? ''
     form.createTime = data?.createTime ?? ''
@@ -395,10 +525,17 @@ async function onView(row) {
   }
 }
 
-function onEdit() { dialog.mode = 'edit'; nextTick(() => formRef.value?.clearValidate()) }
+function onEdit() {
+  dialog.mode = 'edit'
+  loadDishOptions(form.id)
+  nextTick(() => formRef.value?.clearValidate())
+}
 
 function onDialogClosed() {
   detailSeq++
+  dishOptionsSeq++
+  dishOptions.value = []
+  dishOptionsLoading.value = false
   clearImageData()
   resetForm()
   originalForm.value = null
@@ -462,6 +599,7 @@ function onSubmitEdit() {
       
       const diff = buildDiffPayload()
       if (!diff) { ElMessage.warning('未修改任何内容'); return }
+      if ('specialty' in diff && (diff.specialty === undefined || diff.specialty === '')) diff.specialty = null
       await updateAdminRestaurant(diff)
       ElMessage.success('修改成功')
       dialog.visible = false
@@ -495,7 +633,7 @@ function onSubmitCreate() {
         images: form.images,
         openHours: form.openHours,
         priceRange: form.priceRange,
-        specialty: form.specialty,
+        specialty: form.specialty ?? null,
         contactPhone: form.contactPhone,
         rating: form.rating,
       }
@@ -593,10 +731,10 @@ loadData()
 </script>
 
 <style scoped>
-.search-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.search-row :deep(.el-input),
-.search-row :deep(.el-select),
-.search-row :deep(.el-date-editor) { width: 240px; }
+.search-form .el-form-item {
+  margin-right: 16px;
+  margin-bottom: 12px;
+}
 
 .admin-restaurants .block { margin-bottom: 16px; }
 .action-row { display: flex; gap: 8px; }

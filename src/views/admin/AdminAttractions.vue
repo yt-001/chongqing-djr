@@ -2,15 +2,27 @@
   <div class="admin-attractions">
     <!-- 顶部：搜索栏（独立一层，统一宽度） -->
     <el-card class="block" shadow="never">
-      <div class="search-row">
-        <el-input v-model="query.keyword" placeholder="关键词" clearable />
-        <el-input v-model="query.name" placeholder="景点名称" clearable />
-        <el-input v-model="query.location" placeholder="地理位置" clearable />
-        <el-date-picker v-model="query.createTime" type="date" value-format="YYYY-MM-DD" placeholder="创建时间" />
-        <el-date-picker v-model="query.updateTime" type="date" value-format="YYYY-MM-DD" placeholder="更新时间" />
-        <el-button type="primary" @click="onSearch">搜索</el-button>
-        <el-button @click="onReset">重置</el-button>
-      </div>
+      <el-form :inline="true" :model="query" class="search-form">
+        <el-form-item label="关键词">
+          <el-input v-model="query.keyword" placeholder="关键词" clearable style="width: 140px" />
+        </el-form-item>
+        <el-form-item label="景点名称">
+          <el-input v-model="query.name" placeholder="景点名称" clearable style="width: 140px" />
+        </el-form-item>
+        <el-form-item label="地理位置">
+          <el-input v-model="query.location" placeholder="地理位置" clearable style="width: 140px" />
+        </el-form-item>
+        <el-form-item label="创建时间">
+          <el-date-picker v-model="query.createTime" type="date" value-format="YYYY-MM-DD" placeholder="创建时间" style="width: 140px" />
+        </el-form-item>
+        <el-form-item label="更新时间">
+          <el-date-picker v-model="query.updateTime" type="date" value-format="YYYY-MM-DD" placeholder="更新时间" style="width: 140px" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="onSearch">搜索</el-button>
+          <el-button @click="onReset">重置</el-button>
+        </el-form-item>
+      </el-form>
     </el-card>
 
     <!-- 中部：操作按钮（新增 / 删除 / 批量删除） -->
@@ -29,7 +41,6 @@
           :data="list"
           border
           style="width: 100%"
-          :fit="false"
           v-loading="loading"
           @selection-change="onSelectionChange"
         >
@@ -275,9 +286,35 @@ const selectedRows = ref([])
 const onSelectionChange = (rows) => { selectedRows.value = rows }
 const singleDeletable = computed(() => selectedRows.value.length === 1)
 
+const minRefreshMs = 600
+const pageGuardMs = 600
+let refreshTimer = null
+let pageGuardTimer = null
+let lastPageTriggerTime = 0
+
+function requestPageLoad() {
+  const now = Date.now()
+  const elapsed = now - lastPageTriggerTime
+  if (!loading.value && elapsed >= pageGuardMs) {
+    lastPageTriggerTime = now
+    loadData()
+    return
+  }
+  if (pageGuardTimer) clearTimeout(pageGuardTimer)
+  pageGuardTimer = setTimeout(() => {
+    lastPageTriggerTime = Date.now()
+    loadData()
+  }, Math.max(pageGuardMs - elapsed, 0))
+}
+
 // 拉取列表（服务端分页）
 async function loadData() {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer)
+    refreshTimer = null
+  }
   loading.value = true
+  const startedAt = Date.now()
   try {
     const payload = {
       pageNum: page.current,
@@ -293,7 +330,12 @@ async function loadData() {
   } catch (e) {
     ElMessage.error(e.message || '加载失败')
   } finally {
-    loading.value = false
+    const elapsed = Date.now() - startedAt
+    const remaining = minRefreshMs - elapsed
+    refreshTimer = setTimeout(() => {
+      loading.value = false
+      refreshTimer = null
+    }, remaining > 0 ? remaining : 0)
   }
 }
 
@@ -311,8 +353,8 @@ function onReset() {
   page.current = 1
   loadData()
 }
-function onSizeChange(sz) { page.size = sz; page.current = 1; loadData() }
-function onPageChange(p) { page.current = p; loadData() }
+function onSizeChange(sz) { page.size = sz; page.current = 1; requestPageLoad() }
+function onPageChange(p) { page.current = p; requestPageLoad() }
 
 // 排序：如需列触发，在 el-table 上监听 sort-change 事件，设置 sort.field/sort.direction 后调用 loadData()
 
@@ -678,10 +720,10 @@ loadData()
 
 <style scoped>
 /* 统一搜索框尺寸，保持稳定 */
-.search-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.search-row :deep(.el-input),
-.search-row :deep(.el-select),
-.search-row :deep(.el-date-editor) { width: 240px; }
+.search-form .el-form-item {
+  margin-right: 16px;
+  margin-bottom: 12px;
+}
 
 .admin-attractions .block { margin-bottom: 16px; }
 .action-row { display: flex; gap: 8px; }

@@ -5,10 +5,15 @@ import vue from '@vitejs/plugin-vue'
 // Vite 配置，别名与移动端调试服务器
 export default defineConfig({
   plugins: [vue()],
+  esbuild: false,
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
+  },
+  build: {
+    minify: false,
+    cssMinify: false
   },
   server: {
     host: true, // 允许通过局域网访问，方便手机调试

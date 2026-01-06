@@ -180,7 +180,7 @@
               <span class="index-badge">{{ index + 1 }}</span>
               <el-input v-model="marker.name" size="small" placeholder="标注名称" @focus="currentMarkerIndex = index" />
             </div>
-            <el-button type="danger" icon="Delete" link @click.stop="removeMarker(index)" />
+            <el-button type="danger" :icon="Delete" link @click.stop="removeMarker(index)" />
           </div>
         </div>
       </div>

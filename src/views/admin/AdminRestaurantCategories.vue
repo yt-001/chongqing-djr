@@ -16,22 +16,37 @@
     </el-card>
 
     <el-card class="block" shadow="never">
-      <div class="search-row">
-        <el-input v-model="query.keyword" placeholder="关键词" clearable />
-        <el-input v-model="query.name" placeholder="分类名称" clearable />
-        <el-select v-model="query.isEnabled" placeholder="是否启用" clearable style="width: 140px">
-          <el-option label="启用" :value="1" />
-          <el-option label="禁用" :value="0" />
-        </el-select>
-        <el-date-picker v-model="query.createRange" type="daterange" value-format="YYYY-MM-DD" range-separator="-" start-placeholder="创建开始" end-placeholder="创建结束" />
-        <el-button type="primary" @click="onSearch">搜索</el-button>
-        <el-button @click="onReset">重置</el-button>
-      </div>
+      <el-form :inline="true" :model="query" class="search-form">
+        <el-form-item label="分类名称">
+          <el-input v-model="query.name" placeholder="分类名称" clearable style="width: 140px" />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="query.isEnabled" placeholder="全部" clearable style="width: 100px">
+            <el-option label="启用" :value="1" />
+            <el-option label="禁用" :value="0" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="创建时间">
+          <el-date-picker
+            v-model="query.createRange"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            range-separator="-"
+            start-placeholder="开始"
+            end-placeholder="结束"
+            style="width: 240px"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="onSearch">搜索</el-button>
+          <el-button @click="onReset">重置</el-button>
+        </el-form-item>
+      </el-form>
     </el-card>
 
     <el-card class="block" shadow="never">
       <div class="table-wrap">
-        <el-table :data="list" border style="width: 100%" :fit="false" v-loading="loading" @selection-change="onSelectionChange">
+        <el-table :data="list" border style="width: 100%" v-loading="loading" @selection-change="onSelectionChange" @sort-change="onSortChange">
           <el-table-column type="selection" width="48" fixed="left" />
           <el-table-column prop="id" label="编号" width="120" sortable="custom" />
           <el-table-column prop="name" label="分类名称" min-width="240" show-overflow-tooltip />
@@ -109,14 +124,25 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick } from 'vue'
+import { ref, reactive, computed, nextTick, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  fetchRestaurantCategoriesPage,
+  fetchDishCategoriesPage,
+  fetchRestaurantCategoryById,
+  fetchDishCategoryById,
+  createRestaurantCategory,
+  updateRestaurantCategory,
+  deleteRestaurantCategory,
+  createDishCategory,
+  updateDishCategory,
+  deleteDishCategory,
+} from '@/api'
 
 const activeTab = ref('restaurant')
 const loading = ref(false)
 
 const query = reactive({
-  keyword: '',
   name: '',
   isEnabled: undefined,
   createRange: [],
@@ -124,60 +150,47 @@ const query = reactive({
 
 const page = reactive({ current: 1, size: 10 })
 
-const restaurantCategories = ref([
-  { id: 1, name: '小吃店', sortOrder: 1, isEnabled: 1, createTime: '2026-01-01 10:00:00', updateTime: '2026-01-01 10:00:00' },
-  { id: 2, name: '私房菜', sortOrder: 2, isEnabled: 1, createTime: '2026-01-01 10:00:00', updateTime: '2026-01-01 10:00:00' },
-  { id: 3, name: '古镇餐厅', sortOrder: 3, isEnabled: 1, createTime: '2026-01-01 10:00:00', updateTime: '2026-01-01 10:00:00' },
-  { id: 4, name: '咖啡甜点', sortOrder: 4, isEnabled: 1, createTime: '2026-01-01 10:00:00', updateTime: '2026-01-01 10:00:00' },
-  { id: 5, name: '农家菜', sortOrder: 5, isEnabled: 1, createTime: '2026-01-01 10:00:00', updateTime: '2026-01-01 10:00:00' },
-  { id: 6, name: '温泉餐厅', sortOrder: 6, isEnabled: 1, createTime: '2026-01-01 10:00:00', updateTime: '2026-01-01 10:00:00' },
-])
+const restaurantCategories = ref([])
 
-const dishCategories = ref([
-  { id: 1, name: '招牌', sortOrder: 1, isEnabled: 1, createTime: '2026-01-01 10:00:00', updateTime: '2026-01-01 10:00:00' },
-  { id: 2, name: '热菜', sortOrder: 2, isEnabled: 1, createTime: '2026-01-01 10:00:00', updateTime: '2026-01-01 10:00:00' },
-  { id: 3, name: '汤类', sortOrder: 3, isEnabled: 1, createTime: '2026-01-01 10:00:00', updateTime: '2026-01-01 10:00:00' },
-  { id: 4, name: '主食', sortOrder: 4, isEnabled: 1, createTime: '2026-01-01 10:00:00', updateTime: '2026-01-01 10:00:00' },
-  { id: 5, name: '甜品', sortOrder: 5, isEnabled: 1, createTime: '2026-01-01 10:00:00', updateTime: '2026-01-01 10:00:00' },
-  { id: 6, name: '凉菜', sortOrder: 6, isEnabled: 1, createTime: '2026-01-01 10:00:00', updateTime: '2026-01-01 10:00:00' },
-  { id: 7, name: '饮品', sortOrder: 7, isEnabled: 1, createTime: '2026-01-01 10:00:00', updateTime: '2026-01-01 10:00:00' },
-  { id: 8, name: '轻食', sortOrder: 8, isEnabled: 1, createTime: '2026-01-01 10:00:00', updateTime: '2026-01-01 10:00:00' },
-])
+const dishCategories = ref([])
+
+const totalRestaurant = ref(0)
+const totalDish = ref(0)
+
+const sortField = ref('')
+const sortDirection = ref('DESC')
 
 const currentRowsRef = computed(() => (activeTab.value === 'restaurant' ? restaurantCategories : dishCategories))
 
-const filteredRows = computed(() => {
-  const keyword = String(query.keyword || '').trim().toLowerCase()
-  const name = String(query.name || '').trim().toLowerCase()
-  const range = Array.isArray(query.createRange) ? query.createRange : []
-  const start = range?.[0]
-  const end = range?.[1]
-  return currentRowsRef.value.value.filter(r => {
-    if (query.isEnabled != null && query.isEnabled !== '' && r.isEnabled !== query.isEnabled) return false
-    if (start || end) {
-      const datePart = String(r.createTime || '').slice(0, 10)
-      if (!datePart) return false
-      if (start && datePart < start) return false
-      if (end && datePart > end) return false
-    }
-    if (name) {
-      if (!String(r.name || '').toLowerCase().includes(name)) return false
-    }
-    if (!keyword) return true
-    return `${r.id} ${r.name}`.toLowerCase().includes(keyword)
-  })
-})
+const currentTotalRef = computed(() => (activeTab.value === 'restaurant' ? totalRestaurant : totalDish))
 
-const total = computed(() => filteredRows.value.length)
-const list = computed(() => {
-  const start = (page.current - 1) * page.size
-  const end = start + page.size
-  return filteredRows.value.slice(start, end)
-})
+const total = computed(() => Number(currentTotalRef.value.value || 0))
+const list = computed(() => currentRowsRef.value.value || [])
 
 const selectedRows = ref([])
 const onSelectionChange = (rows) => { selectedRows.value = rows }
 const singleDeletable = computed(() => selectedRows.value.length === 1)
+
+const minRefreshMs = 600
+const pageGuardMs = 600
+let refreshTimer = null
+let pageGuardTimer = null
+let lastPageTriggerTime = 0
+
+function requestPageLoad() {
+  const now = Date.now()
+  const elapsed = now - lastPageTriggerTime
+  if (!loading.value && elapsed >= pageGuardMs) {
+    lastPageTriggerTime = now
+    loadData()
+    return
+  }
+  if (pageGuardTimer) clearTimeout(pageGuardTimer)
+  pageGuardTimer = setTimeout(() => {
+    lastPageTriggerTime = Date.now()
+    loadData()
+  }, Math.max(pageGuardMs - elapsed, 0))
+}
 
 const dialog = reactive({ visible: false, mode: 'create' })
 const formRef = ref()
@@ -214,25 +227,99 @@ function validateInteger(label) {
   }
 }
 
+function getCreateTimeRange() {
+  const range = Array.isArray(query.createRange) ? query.createRange : []
+  const start = range?.[0]
+  const end = range?.[1]
+  return {
+    createTimeStart: start || '',
+    createTimeEnd: end || '',
+  }
+}
+
+function buildPagePayload() {
+  const { createTimeStart, createTimeEnd } = getCreateTimeRange()
+  const q = {
+    name: query.name || '',
+    createTimeStart,
+    createTimeEnd,
+  }
+  if (query.isEnabled !== undefined) {
+    q.isEnabled = query.isEnabled
+  }
+  return {
+    pageNum: page.current,
+    pageSize: page.size,
+    sortField: sortField.value || '',
+    sortDirection: sortDirection.value || 'DESC',
+    query: q,
+  }
+}
+
+function onSortChange({ prop, order }) {
+  if (!order) {
+    sortField.value = ''
+    sortDirection.value = 'DESC'
+  } else {
+    sortField.value = prop || ''
+    sortDirection.value = order === 'ascending' ? 'ASC' : 'DESC'
+  }
+  page.current = 1
+  loadData()
+}
+
+async function loadData() {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer)
+    refreshTimer = null
+  }
+  loading.value = true
+  const startedAt = Date.now()
+  try {
+    const payload = buildPagePayload()
+    if (activeTab.value === 'restaurant') {
+      const data = await fetchRestaurantCategoriesPage(payload)
+      restaurantCategories.value = data?.list || data?.records || []
+      totalRestaurant.value = data?.total ?? data?.totalRecords ?? 0
+    } else {
+      const data = await fetchDishCategoriesPage(payload)
+      dishCategories.value = data?.list || data?.records || []
+      totalDish.value = data?.total ?? data?.totalRecords ?? 0
+    }
+  } catch (e) {
+    ElMessage.error(e.message || '加载失败')
+  } finally {
+    const elapsed = Date.now() - startedAt
+    const remaining = minRefreshMs - elapsed
+    refreshTimer = setTimeout(() => {
+      loading.value = false
+      refreshTimer = null
+    }, remaining > 0 ? remaining : 0)
+  }
+}
+
 function onSearch() {
   page.current = 1
+  loadData()
 }
 
 function onReset() {
-  query.keyword = ''
   query.name = ''
   query.isEnabled = undefined
   query.createRange = []
   page.current = 1
+  loadData()
 }
 
 function onSizeChange(sz) {
   page.size = sz
   page.current = 1
+  requestPageLoad()
 }
 
 function onPageChange(p) {
   page.current = p
+  requestPageLoad()
 }
 
 function resetForm() {
@@ -262,8 +349,8 @@ function onAdd() {
 
 function onView(row) {
   dialog.mode = 'view'
-  fillForm(row)
   dialog.visible = true
+  loadDetail(row.id)
 }
 
 function onEdit() {
@@ -276,62 +363,67 @@ function onDialogClosed() {
   formRef.value?.clearValidate()
 }
 
-function nowText() {
-  const d = new Date()
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
-
-function nextId() {
-  const max = currentRowsRef.value.value.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)
-  return max + 1
+async function loadDetail(id) {
+  try {
+    const data = activeTab.value === 'restaurant' ? await fetchRestaurantCategoryById(id) : await fetchDishCategoryById(id)
+    fillForm(data || {})
+  } catch (e) {
+    ElMessage.error(e.message || '加载详情失败')
+    dialog.visible = false
+  }
 }
 
 async function onSubmitCreate() {
   try {
     await formRef.value?.validate()
-    const id = nextId()
-    const t = nowText()
-    const row = {
-      id,
+    const payload = {
       name: form.name,
       sortOrder: Number(form.sortOrder),
       isEnabled: form.isEnabled,
-      createTime: t,
-      updateTime: t,
     }
-    currentRowsRef.value.value = [row, ...currentRowsRef.value.value]
-    ElMessage.success('已新增（本地模拟）')
+    if (activeTab.value === 'restaurant') {
+      await createRestaurantCategory(payload)
+    } else {
+      await createDishCategory(payload)
+    }
+    ElMessage.success('新增成功')
     dialog.visible = false
+    loadData()
   } catch (_) {}
 }
 
 async function onSubmitEdit() {
   try {
     await formRef.value?.validate()
-    const t = nowText()
-    currentRowsRef.value.value = currentRowsRef.value.value.map(r => {
-      if (r.id !== form.id) return r
-      return {
-        ...r,
-        name: form.name,
-        sortOrder: Number(form.sortOrder),
-        isEnabled: form.isEnabled,
-        updateTime: t,
-      }
-    })
-    ElMessage.success('已保存（本地模拟）')
+    const payload = {
+      id: Number(form.id),
+      name: form.name,
+      sortOrder: Number(form.sortOrder),
+      isEnabled: form.isEnabled,
+    }
+    if (activeTab.value === 'restaurant') {
+      await updateRestaurantCategory(payload)
+    } else {
+      await updateDishCategory(payload)
+    }
+    ElMessage.success('保存成功')
     dialog.visible = false
+    loadData()
   } catch (_) {}
 }
 
 async function onDelete(row) {
   try {
     await ElMessageBox.confirm(`确认删除「${row.name}」？`, '提示', { type: 'warning' })
-    currentRowsRef.value.value = currentRowsRef.value.value.filter(r => r.id !== row.id)
+    if (activeTab.value === 'restaurant') {
+      await deleteRestaurantCategory(row.id)
+    } else {
+      await deleteDishCategory(row.id)
+    }
+    ElMessage.success('删除成功')
     selectedRows.value = selectedRows.value.filter(r => r.id !== row.id)
-    ElMessage.success('已删除（本地模拟）')
-    if (page.current > 1 && list.value.length === 0) page.current -= 1
+    if (page.current > 1 && list.value.length === 1) page.current -= 1
+    loadData()
   } catch (_) {}
 }
 
@@ -340,12 +432,29 @@ async function onBatchDelete() {
   if (ids.size === 0) return
   try {
     await ElMessageBox.confirm(`确认删除选中的 ${ids.size} 条记录？`, '提示', { type: 'warning' })
-    currentRowsRef.value.value = currentRowsRef.value.value.filter(r => !ids.has(r.id))
+    for (const id of ids) {
+      if (activeTab.value === 'restaurant') {
+        await deleteRestaurantCategory(id)
+      } else {
+        await deleteDishCategory(id)
+      }
+    }
+    ElMessage.success('批量删除成功')
     selectedRows.value = []
-    ElMessage.success('已批量删除（本地模拟）')
-    if (page.current > 1 && list.value.length === 0) page.current -= 1
+    if (page.current > 1 && list.value.length === ids.size) page.current -= 1
+    loadData()
   } catch (_) {}
 }
+
+watch(activeTab, () => {
+  selectedRows.value = []
+  page.current = 1
+  loadData()
+})
+
+onMounted(() => {
+  loadData()
+})
 </script>
 
 <style scoped>
@@ -371,11 +480,9 @@ async function onBatchDelete() {
   gap: 12px;
 }
 
-.search-row {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  align-items: center;
+.search-form .el-form-item {
+  margin-right: 16px;
+  margin-bottom: 12px;
 }
 
 .table-wrap {
@@ -406,4 +513,3 @@ async function onBatchDelete() {
   flex: 2;
 }
 </style>
-

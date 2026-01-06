@@ -11,6 +11,9 @@ import 'vant/lib/index.css'
 // 引入 Element Plus（管理端/桌面端）
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import dayjs from 'dayjs'
+import 'dayjs/locale/zh-cn'
 import './styles/element-theme.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
@@ -18,7 +21,8 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 app.use(Vant)
-app.use(ElementPlus)
+dayjs.locale('zh-cn')
+app.use(ElementPlus, { locale: zhCn })
 // 全量注册 Element Plus 图标，方便在管理端使用
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)

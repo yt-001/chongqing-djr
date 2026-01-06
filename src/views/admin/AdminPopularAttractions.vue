@@ -21,11 +21,38 @@ const designPageSize = ref(10)
 const designTotal = ref(0)
 const designList = ref([])
 
+const minRefreshMs = 600
+const pageGuardMs = 600
+let listRefreshTimer = null
+let designRefreshTimer = null
+let designPageGuardTimer = null
+let lastDesignPageTriggerTime = 0
+
+function requestDesignPageLoad() {
+  const now = Date.now()
+  const elapsed = now - lastDesignPageTriggerTime
+  if (!designLoading.value && elapsed >= pageGuardMs) {
+    lastDesignPageTriggerTime = now
+    loadDesignPage()
+    return
+  }
+  if (designPageGuardTimer) clearTimeout(designPageGuardTimer)
+  designPageGuardTimer = setTimeout(() => {
+    lastDesignPageTriggerTime = Date.now()
+    loadDesignPage()
+  }, Math.max(pageGuardMs - elapsed, 0))
+}
+
 /**
  * 根据搜索词过滤本地景点数据（支持ID精确、名称模糊）
  */
 async function loadDesignPage() {
+  if (designRefreshTimer) {
+    clearTimeout(designRefreshTimer)
+    designRefreshTimer = null
+  }
   designLoading.value = true
+  const startedAt = Date.now()
   try {
     const q = (searchQuery.value || '').trim()
     const idNum = Number(q)
@@ -45,7 +72,12 @@ async function loadDesignPage() {
     designList.value = []
     designTotal.value = 0
   } finally {
-    designLoading.value = false
+    const elapsed = Date.now() - startedAt
+    const remaining = minRefreshMs - elapsed
+    designRefreshTimer = setTimeout(() => {
+      designLoading.value = false
+      designRefreshTimer = null
+    }, remaining > 0 ? remaining : 0)
   }
 }
 
@@ -53,6 +85,11 @@ function onDesignSearch() {
   designPageNum.value = 1
   loadDesignPage()
   designVisible.value = true // 搜索时打开下拉框
+}
+
+function onDesignPageChange(p) {
+  designPageNum.value = p
+  requestDesignPageLoad()
 }
 
 /**
@@ -69,14 +106,24 @@ function pickAttraction(row) {
  * 加载热门景点完整列表
  */
 async function loadList() {
+  if (listRefreshTimer) {
+    clearTimeout(listRefreshTimer)
+    listRefreshTimer = null
+  }
   loading.value = true
+  const startedAt = Date.now()
   try {
     const res = await fetchPopularAttractions()
     list.value = Array.isArray(res) ? res : []
   } catch (e) {
     ElMessage.error(e.message || '加载热门景点失败')
   } finally {
-    loading.value = false
+    const elapsed = Date.now() - startedAt
+    const remaining = minRefreshMs - elapsed
+    listRefreshTimer = setTimeout(() => {
+      loading.value = false
+      listRefreshTimer = null
+    }, remaining > 0 ? remaining : 0)
   }
 }
 
@@ -153,7 +200,7 @@ onMounted(() => loadList())
                   :total="designTotal"
                   :page-size="designPageSize"
                   :current-page="designPageNum"
-                  @current-change="(p)=>{ designPageNum = p; loadDesignPage() }"
+                  @current-change="onDesignPageChange"
                 />
               </div>
             </div>
