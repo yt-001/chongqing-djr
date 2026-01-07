@@ -50,10 +50,30 @@ function getItemUniqueKey(item, tabIndex) {
 }
 
 function normalizePage(res) {
-  const list = (res && Array.isArray(res.list) && res.list) || []
-  const total = typeof res?.total === 'number' ? res.total : null
-  const pageNum = typeof res?.pageNum === 'number' ? res.pageNum : null
-  const pageSizeFromRes = typeof res?.pageSize === 'number' ? res.pageSize : null
+  const list =
+    (res && Array.isArray(res.list) && res.list) ||
+    (res && Array.isArray(res.records) && res.records) ||
+    (res?.data && Array.isArray(res.data.list) && res.data.list) ||
+    (res?.data && Array.isArray(res.data.records) && res.data.records) ||
+    []
+  const total =
+    typeof res?.total === 'number'
+      ? res.total
+      : typeof res?.data?.total === 'number'
+        ? res.data.total
+        : null
+  const pageNum =
+    typeof res?.pageNum === 'number'
+      ? res.pageNum
+      : typeof res?.data?.pageNum === 'number'
+        ? res.data.pageNum
+        : null
+  const pageSizeFromRes =
+    typeof res?.pageSize === 'number'
+      ? res.pageSize
+      : typeof res?.data?.pageSize === 'number'
+        ? res.data.pageSize
+        : null
   return { list, total, pageNum, pageSize: pageSizeFromRes }
 }
 
@@ -101,6 +121,11 @@ async function onLoad(tabIndex = activeTab.value) {
     const { list, total } = normalizePage(res)
     if (typeof total === 'number') tab.total = total
 
+    if (list.length === 0) {
+      tab.finished = true
+      return
+    }
+
     const uniqueItems = []
     for (const item of list) {
       const key = getItemUniqueKey(item, tabIndex)
@@ -145,7 +170,11 @@ async function onLoad(tabIndex = activeTab.value) {
   } catch (e) {
     tab.finished = true
     console.error(e)
-    showToast(e?.message || '加载失败')
+    if (e?.status === 403) {
+      showToast('请先登录')
+    } else {
+      showToast(e?.message || '加载失败')
+    }
   } finally {
     tab.loading = false
     tab.requesting = false

@@ -2,16 +2,23 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { fetchRestaurantById } from '../api/index.js'
+import { fetchRestaurantById, fetchRestaurantDishesByRestaurantId, checkFavoriteRestaurant, addFavoriteRestaurant, removeFavoriteRestaurant } from '@/api'
 import { processImageData } from '@/utils/imageUtils.js'
+import { useUserStore } from '@/store/user.js'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 const restaurant = ref(null)
+const dishes = ref([])
 const loading = ref(true)
+const isFav = ref(false)
+const favBusy = ref(false)
+const dishesLoading = ref(false)
+let dishesSeq = 0
 
 /**
- * 解析封面与图集（统一 /images 前缀）
+ * 解析封面与图集
  * @returns {{coverUrl:string,imageUrls:string[]}}
  */
 const imageView = computed(() => {
@@ -21,28 +28,29 @@ const imageView = computed(() => {
   })
 })
 
+const merchantImages = computed(() => {
+  const cover = imageView.value?.coverUrl || ''
+  const list = Array.isArray(imageView.value?.imageUrls) ? imageView.value.imageUrls : []
+  const all = [cover, ...list].filter(Boolean)
+  return [...new Set(all)]
+})
+
 /**
- * 特色菜品（后端提供菜品名称、价格、图片）
- * 兼容多种返回结构：字符串JSON或对象数组，字段名的差异
- * @returns {{id:number,name:string,price:string|number,img:string}[]}
+ * 特色菜品（按商家ID从接口加载）
+ * @returns {{id:number,name:string,price:string|number,img:string,isRecommended:boolean}[]}
  */
 const specialDishes = computed(() => {
-  const raw = restaurant.value?.dishes || restaurant.value?.specialDishes || restaurant.value?.signatureDishes || []
-  let arr
-  try {
-    arr = Array.isArray(raw) ? raw : JSON.parse(raw)
-  } catch (_) {
-    arr = []
-  }
-  if (!Array.isArray(arr)) return []
+  const arr = Array.isArray(dishes.value) ? dishes.value : []
   return arr
     .filter(Boolean)
     .map((item, idx) => {
       const name = item.name || item.title || `菜品 ${idx + 1}`
       const price = item.price ?? item.cost ?? item.priceYuan ?? ''
-      const cover = item.image || item.img || item.coverImage || ''
-      const url = processImageData({ coverImage: cover, images: '[]' }).coverUrl || ''
-      return { id: idx, name, price, img: url }
+      const url = item.imageUrl || item.image || item.img || item.coverImage || ''
+      const rawRec = item.isRecommended ?? item.recommended ?? item.is_recommended ?? item.isHot ?? item.hot ?? 0
+      const isRecommended = Number(rawRec) === 1 || rawRec === true
+      const id = item.id ?? item.dishId ?? idx
+      return { id, name, price, img: url, isRecommended }
     })
 })
 
@@ -62,9 +70,16 @@ onMounted(async () => {
     loading.value = true
     const data = await fetchRestaurantById(id)
     restaurant.value = data
-    // 若后端暂未提供特色菜品，注入示例数据用于预览效果
-    if (!restaurant.value?.dishes && !restaurant.value?.specialDishes && !restaurant.value?.signatureDishes) {
-      restaurant.value.dishes = JSON.stringify(buildDemoDishes())
+    await loadDishes()
+    if (userStore.isLoggedIn && restaurant.value?.id != null) {
+      try {
+        const res = await checkFavoriteRestaurant({ restaurantId: restaurant.value.id, userId: userStore.user?.id })
+        isFav.value = !!res
+      } catch {
+        isFav.value = false
+      }
+    } else {
+      isFav.value = false
     }
   } catch (e) {
     showToast('获取美食详情失败')
@@ -72,6 +87,28 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+async function loadDishes() {
+  const restaurantId = restaurant.value?.id
+  if (!restaurantId) {
+    dishes.value = []
+    return
+  }
+
+  const seq = ++dishesSeq
+  dishesLoading.value = true
+  try {
+    const data = await fetchRestaurantDishesByRestaurantId(restaurantId)
+    if (seq !== dishesSeq) return
+    dishes.value = Array.isArray(data) ? data : (data?.list || data?.records || [])
+  } catch (e) {
+    if (seq !== dishesSeq) return
+    dishes.value = []
+    showToast(e?.message || '加载菜品失败')
+  } finally {
+    if (seq === dishesSeq) dishesLoading.value = false
+  }
+}
 
 /**
  * 快捷操作占位
@@ -88,18 +125,36 @@ const onViewDetail = (id) => {
   showToast({ message: `菜品 ${id} 详情开发中`, position: 'top' })
 }
 
-/**
- * 构建特色菜品示例数据（文件名来自 public/images/）
- * @returns {{name:string,price:number,image:string}[]}
- */
-function buildDemoDishes() {
-  return [
-    { name: '招牌鲜牛肉', price: 58, image: 'e3f52c00-0122-438b-8fa1-59d03ea1a848.png' },
-    { name: '番茄土豆片', price: 26, image: 'cf566d3f-f756-4f3f-bf83-401aff4af440.png' },
-    { name: '手打虾滑', price: 38, image: '99690364-15d9-4d57-9230-45b1773a0710.png' },
-    { name: '麻辣鹅肠', price: 32, image: 'de7b1565-a06f-434c-92b3-f4a6da39a14f.png' }
-  ]
+async function toggleFav() {
+  const id = restaurant.value?.id
+  if (!id) return
+  if (!userStore.isLoggedIn) {
+    showToast('请先登录')
+    return
+  }
+  if (favBusy.value) return
+  favBusy.value = true
+  try {
+    if (isFav.value) {
+      await removeFavoriteRestaurant({ restaurantId: id, userId: userStore.user?.id })
+      isFav.value = false
+      showToast('已取消收藏')
+    } else {
+      await addFavoriteRestaurant({ restaurantId: id, userId: userStore.user?.id })
+      isFav.value = true
+      showToast('已添加到收藏')
+    }
+  } catch (e) {
+    if (e?.status === 403) {
+      showToast('请先登录')
+      return
+    }
+    showToast(e?.message || '操作失败')
+  } finally {
+    favBusy.value = false
+  }
 }
+
 </script>
 
 <template>
@@ -109,13 +164,12 @@ function buildDemoDishes() {
   </div>
   <div v-else-if="restaurant" class="food-page">
     <!-- 返回导航条 -->
-    <van-nav-bar left-text="返回" left-arrow @click-left="router.back()" />
+    <van-nav-bar left-text="返回" left-arrow :right-text="isFav ? '已收藏' : '收藏'" @click-left="router.back()" @click-right="toggleFav" />
 
     <!-- 顶部横幅 -->
     <div class="banner">
       <div class="brand">
         <div class="title">{{ restaurant.name }}</div>
-        <div class="sub">{{ restaurant.specialty }}</div>
       </div>
     </div>
 
@@ -151,14 +205,14 @@ function buildDemoDishes() {
       <div class="intro-text">{{ restaurant.description }}</div>
     </div>
 
-    <!-- 商家相册 -->
+    <!-- 商家图片 -->
     <div class="section-head">
-      <div class="title">商家相册</div>
-      <div class="pager">{{ currentSlide + 1 }}/{{ imageView.imageUrls.length }}</div>
+      <div class="title">商家图片</div>
+      <div class="pager">{{ merchantImages.length > 0 ? `${currentSlide + 1}/${merchantImages.length}` : '0/0' }}</div>
     </div>
 
-    <van-swipe class="dish-swipe" :autoplay="4000" :show-indicators="false" @change="(i)=> currentSlide = i">
-      <van-swipe-item v-for="(img, idx) in imageView.imageUrls" :key="idx">
+    <van-swipe v-if="merchantImages.length > 0" class="dish-swipe" :autoplay="4000" :show-indicators="false" @change="(i)=> currentSlide = i">
+      <van-swipe-item v-for="(img, idx) in merchantImages" :key="idx">
         <div class="dish-card">
           <van-image :src="img" width="100%" height="100%" fit="cover" />
         </div>
@@ -175,7 +229,10 @@ function buildDemoDishes() {
     <!-- 特色菜品网格（图+名+价） -->
     <div class="dish-grid" v-if="specialDishes.length > 0">
       <div class="grid-item" v-for="dish in specialDishes" :key="`g-`+dish.id" @click="onViewDetail(dish.id)">
-        <van-image :src="dish.img" width="100%" height="120" fit="cover" />
+        <div class="dish-cover">
+          <van-image :src="dish.img" width="100%" height="120" fit="cover" />
+          <div v-if="dish.isRecommended" class="recommend-badge">推荐</div>
+        </div>
         <div class="grid-info">
           <div class="name">{{ dish.name }}</div>
           <div class="price" v-if="dish.price !== ''">¥ {{ Number(dish.price).toFixed(2) }}</div>
@@ -211,6 +268,17 @@ function buildDemoDishes() {
 .dish-card { position: relative; height: 100%; }
 .dish-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px; }
 .grid-item { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 14px rgba(0,0,0,0.06); }
+.dish-cover { position: relative; }
+.recommend-badge {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: #fff;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ff3b30 0%, #ff9500 100%);
+}
 .grid-info { display: flex; align-items: center; justify-content: space-between; padding: 8px; }
 .grid-info .name { font-size: 14px; font-weight: 600; color: #333; }
 .grid-info .price { font-size: 13px; color: #12b981; font-weight: 700; }

@@ -15,15 +15,15 @@ export function processImageData(imageData) {
     imageUrls: []
   }
 
-  const isAbsolute = (url) => /^https?:\/\//.test(url) || url.startsWith('/')
-
-  // 处理封面图片：后端返回为完整URL时直接使用，否则走 /images 前缀
-  if (imageData.coverImage) {
-    const raw = String(imageData.coverImage)
-    result.coverUrl = isAbsolute(raw) ? raw : `/images/${raw.replace(/^\/images\//, '')}`
+  const toStringUrl = (value) => {
+    const raw = String(value ?? '').trim()
+    return raw || ''
   }
 
-  // 处理图片数组：支持数组或JSON字符串，项为完整URL时不改写
+  if (imageData.coverImage) {
+    result.coverUrl = toStringUrl(imageData.coverImage)
+  }
+
   if (imageData.images) {
     try {
       const imageArray = Array.isArray(imageData.images) ? imageData.images : JSON.parse(imageData.images)
@@ -31,8 +31,7 @@ export function processImageData(imageData) {
         result.imageUrls = imageArray
           .filter(Boolean)
           .map((img) => {
-            const raw = String(img)
-            return isAbsolute(raw) ? raw : `/images/${raw.replace(/^\/images\//, '')}`
+            return toStringUrl(img)
           })
       }
     } catch (error) {
