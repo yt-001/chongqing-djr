@@ -733,10 +733,17 @@ const saveWorkflow = async () => {
     return
   }
 
+  // 重置预览状态
+  saveDialog.previewUrl = ''
+  saveDialog.uploadFile = null
+
   if (routeId && routeDetail.value) {
     saveDialog.form.name = routeDetail.value.name || ''
     saveDialog.form.description = routeDetail.value.description || ''
-    saveDialog.form.coverImage = routeDetail.value.coverImage || ''
+    // 兼容图片路径：将文件名统一转换为 /images 前缀可预览的 URL
+    const rawCover = routeDetail.value.coverImage || ''
+    const fileName = String(rawCover).replace(/^\/public\/images\//, '').replace(/^\/images\//, '')
+    saveDialog.form.coverImage = fileName ? `/images/${fileName}` : ''
     saveDialog.form.totalDistance = routeDetail.value.totalDistance ?? null
     saveDialog.form.totalDuration = routeDetail.value.totalDuration ?? null
   }

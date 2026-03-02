@@ -143,9 +143,9 @@ const defaultAvatar = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
 
 function toImagesPreview(p) {
   if (!p || typeof p !== 'string') return ''
-  // 兼容处理：去除可能已存在的 /public/images/ 或 /images/ 前缀，统一加上 /public/images/
+  // 兼容处理：去除可能已存在的 /public/images/ 或 /images/ 前缀，统一加上 /images/
   const fileName = String(p).replace(/^\/public\/images\//, '').replace(/^\/images\//, '')
-  return `/public/images/${fileName}`
+  return `/images/${fileName}`
 }
 
 // 当前用户信息

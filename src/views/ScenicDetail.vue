@@ -88,7 +88,7 @@ async function loadDetail() {
 }
 
 /**
- * 解析图片/封面为可用URL（使用 /images 前缀）
+ * 解析图片/封面为可用URL（使用 /public/images 前缀）
  * @returns {{coverUrl:string,imageUrls:string[]}}
  */
 const imageView = computed(() => {
@@ -137,6 +137,20 @@ function openMap() {
   })
 }
 
+/**
+ * 解析用户头像路径
+ * @param {string} path
+ * @returns {string}
+ */
+function resolveAvatar(path) {
+  if (!path) return ''
+  const s = String(path)
+  if (/^https?:\/\//.test(s)) return s
+  // 统一映射为 /images 前缀，去掉 /public/images 或重复 /images
+  const fileName = s.replace(/^\/public\/images\//, '').replace(/^\/images\//, '')
+  return `/images/${fileName}`
+}
+
 onMounted(loadDetail)
 
 // 评论相关状态
@@ -147,158 +161,49 @@ const hasMore = ref(true)
 const loadingMore = ref(false)
 const pulling = ref(false)
 const commentListRef = ref(null)
-const showScrollbarHint = ref(false)
-const touchStartY = ref(0)
-const lastY = ref(0)
-const touching = ref(false)
 const totalComments = ref(0)
-
-// 评论输入
 const newComment = ref('')
 
 /**
- * 初始化评论列表
- */
-async function initComments() {
-  if (!route.params.id) return
-  pageIndex.value = 1
-  hasMore.value = true
-  comments.value = []
-  await loadNextPage()
-}
-
-/**
- * 加载下一页评论
- */
-async function loadNextPage() {
-  if (!hasMore.value || loadingMore.value) return
-  loadingMore.value = true
-  
-  try {
-    const res = await fetchAttractionCommentsPage({
-      pageNum: pageIndex.value,
-      pageSize: pageSize,
-      query: { attractionId: Number(route.params.id) }
-    })
-    
-    const list = res.list || res.records || []
-    totalComments.value = res.total || 0
-    
-    if (pageIndex.value === 1) {
-      comments.value = list
-    } else {
-      comments.value.push(...list)
-    }
-    
-    if (list.length < pageSize) {
-      hasMore.value = false
-    } else {
-      pageIndex.value++
-    }
-  } catch (e) {
-    showToast('加载评论失败')
-  } finally {
-    loadingMore.value = false
-  }
-}
-
-/**
- * 提交评论
- */
-async function submitComment() {
-  if (!userStore.isLoggedIn) return showToast('请先登录')
-  if (!newComment.value.trim()) return showToast('请输入评论内容')
-  
-  try {
-    await addAttractionComment({
-      userId: userStore.user.id,
-      attractionId: Number(route.params.id),
-      content: newComment.value,
-      rating: 5 // 默认好评
-    })
-    showToast('评论成功')
-    newComment.value = ''
-    // 刷新列表
-    initComments()
-  } catch (e) {
-    showToast(e.message || '评论失败')
-  }
-}
-
-/**
- * 删除评论
- */
-function deleteComment(item) {
-  showConfirmDialog({
-    title: '删除评论',
-    message: '确定要删除这条评论吗？',
-  })
-    .then(async () => {
-      try {
-        await deleteAttractionComment(item.id, userStore.user.id)
-        showToast('删除成功')
-        // 从列表中移除
-        const idx = comments.value.findIndex(c => c.id === item.id)
-        if (idx > -1) {
-          comments.value.splice(idx, 1)
-          totalComments.value--
-        }
-      } catch (e) {
-        showToast(e.message || '删除失败')
-      }
-    })
-    .catch(() => {})
-}
-
-/**
- * 底部继续滑动触发拉距抖动并加载下一页
- * @param {WheelEvent} e
+ * 局部滚动：鼠标滚轮
  */
 function onCommentWheel(e) {
+  if (!hasMore.value || loadingMore.value) return
   const el = commentListRef.value
   if (!el) return
-  const atBottom = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight
-  if (atBottom && e.deltaY > 0 && hasMore.value) {
-    if (pulling.value || loadingMore.value) return
-    pulling.value = true
-    showScrollbarHint.value = true
-    setTimeout(() => { showScrollbarHint.value = false }, 800)
-    setTimeout(() => { pulling.value = false }, 280)
-    loadNextPage()
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 10) {
+    if (e.deltaY > 0) loadMoreComments()
   }
 }
 
+let startY = 0
+const touching = ref(false)
+const showScrollbarHint = ref(false)
+
 /**
- * 触屏：开始滑动记录起点
- * @param {TouchEvent} e
+ * 触屏：记录起始位置
  */
 function onCommentTouchStart(e) {
+  startY = e.touches[0].pageY
   touching.value = true
-  const y = e.touches[0]?.clientY || 0
-  touchStartY.value = y
-  lastY.value = y
+  showScrollbarHint.value = true
+  setTimeout(() => { showScrollbarHint.value = false }, 1000)
 }
 
 /**
- * 触屏：在底部继续向上滑时触发抖动与加载
- * @param {TouchEvent} e
+ * 触屏：向上滑动加载更多
  */
 function onCommentTouchMove(e) {
+  if (!hasMore.value || loadingMore.value) return
   const el = commentListRef.value
   if (!el) return
-  const y = e.touches[0]?.clientY || 0
-  const delta = lastY.value - y // 上滑为正值
-  lastY.value = y
-  const atBottom = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight
-  if (atBottom && delta > 0 && hasMore.value) {
-    if (pulling.value || loadingMore.value) return
-    pulling.value = true
-    showScrollbarHint.value = true
-    setTimeout(() => { showScrollbarHint.value = false }, 800)
-    setTimeout(() => { pulling.value = false }, 280)
-    loadNextPage()
-    // 防止过度滚动产生空白回弹（仅在事件可取消时）
-    if (e.cancelable) e.preventDefault()
+  const currentY = e.touches[0].pageY
+  // 向上划过一定阈值，且到底
+  if (startY - currentY > 50) {
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 20) {
+      pulling.value = true
+      loadMoreComments()
+    }
   }
 }
 
@@ -307,18 +212,77 @@ function onCommentTouchMove(e) {
  */
 function onCommentTouchEnd() {
   touching.value = false
+  setTimeout(() => { pulling.value = false }, 300)
 }
 
-onMounted(() => {
-  initComments()
-})
+async function loadMoreComments() {
+  if (!hasMore.value || loadingMore.value) return
+  loadingMore.value = true
+  try {
+    const res = await fetchAttractionCommentsPage({
+      pageNum: pageIndex.value + 1,
+      pageSize,
+      query: { attractionId: scenic.value.id }
+    })
+    const nextList = res.list || []
+    comments.value = comments.value.concat(nextList)
+    pageIndex.value++
+    hasMore.value = comments.value.length < totalComments.value
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+async function initComments() {
+  if (!scenic.value?.id) return
+  try {
+    const res = await fetchAttractionCommentsPage({
+      pageNum: 1,
+      pageSize: 10,
+      query: { attractionId: scenic.value.id }
+    })
+    comments.value = res.list || []
+    totalComments.value = res.total || 0
+    hasMore.value = comments.value.length < totalComments.value
+  } catch (e) {
+    console.error('加载评论失败', e)
+  }
+}
+
+async function submitComment() {
+  if (!userStore.isLoggedIn) return showToast('请先登录')
+  if (!newComment.value.trim()) return
+  try {
+    await addAttractionComment({
+      userId: userStore.user.id,
+      attractionId: scenic.value.id,
+      content: newComment.value,
+      rating: 5
+    })
+    showToast('评论成功')
+    newComment.value = ''
+    initComments()
+  } catch (e) {
+    showToast(e.message || '评论失败')
+  }
+}
+
+async function deleteComment(c) {
+  try {
+    await showConfirmDialog({ title: '提示', message: '确定删除此评论吗？' })
+    await deleteAttractionComment(c.id, userStore.user.id)
+    showToast('已删除')
+    initComments()
+  } catch (e) {
+    if (e !== 'cancel') showToast(e.message || '删除失败')
+  }
+}
 
 // 支付相关状态
 const paySheetVisible = ref(false)
 const payMethod = ref('wechat')
 const paying = ref(false)
 const ticketCount = ref(1)
-
 
 /**
  * 打开支付方式选择弹层
@@ -336,7 +300,6 @@ async function startPay() {
   try {
     await new Promise((res) => setTimeout(res, 1000))
     paySheetVisible.value = false
-    const userStore = useUserStore()
     const userId = userStore?.user?.id
     if (!userId) {
       showToast({ message: '请先登录', position: 'top' })
@@ -367,111 +330,116 @@ async function startPay() {
 </script>
 
 <template>
-  <div class="scenic-detail" v-loading="loading">
-    <!-- 顶部封面与基本信息 -->
-    <div class="cover" :style="{ backgroundImage: imageView.coverUrl ? `url(${imageView.coverUrl})` : 'none' }">
-      <van-nav-bar left-text="返回" left-arrow @click-left="router.back()" />
-      <div class="hero-card">
-        <div class="hero-header">
-          <div class="hero-title">{{ scenic?.name || '景点' }}</div>
-          <div class="fav-btn" :class="{ active: isFav }" @click.stop="toggleFav">
-            <van-icon :name="isFav ? 'star' : 'star-o'" />
-          </div>
-        </div>
-        <div class="hero-sub">{{ scenic?.location || '未知位置' }}</div>
-        <div class="hero-tags">
-          <van-tag type="primary" plain>开放时间 {{ scenic?.openHours || '未知' }}</van-tag>
-          <van-tag type="warning" plain>票价 {{ formatPrice(scenic?.ticketPrice) }}</van-tag>
-        </div>
-      </div>
+  <div class="scenic-detail">
+    <div v-if="loading" class="loading-state">
+      <van-loading type="spinner" vertical>加载中...</van-loading>
     </div>
-
-    <!-- 内容卡片 -->
-    <div class="content-card">
-      <div class="intro">
-        <div class="intro-title">景点简介</div>
-        <div class="intro-text">{{ scenic?.description || '暂无简介' }}</div>
-      </div>
-
-      <van-cell-group inset>
-        <van-cell title="地理位置" :value="scenic?.location || '未知'" @click="openMap" is-link />
-        <van-cell title="开放时间" :value="scenic?.openHours || '未知'" />
-        <van-cell title="门票价格" :value="formatPrice(scenic?.ticketPrice)" />
-        <van-cell title="联系电话" :value="scenic?.contactPhone || '暂无'" @click="callPhone" is-link />
-      </van-cell-group>
-
-      <!-- 图集轮播 -->
-      <div v-if="imageView.imageUrls.length" class="gallery">
-        <van-swipe :autoplay="3000" lazy-render :show-indicators="true" class="gallery-swipe">
-          <van-swipe-item v-for="(img, idx) in imageView.imageUrls" :key="idx">
-            <img class="gallery-img" :src="img" alt="image" />
-          </van-swipe-item>
-        </van-swipe>
-      </div>
-
-      <!-- 底部操作 -->
-      <div class="actions">
-        <van-button type="primary" round block @click="openMap">导航到此</van-button>
-        <van-button type="success" round block plain @click="callPhone">咨询电话</van-button>
-        <van-button type="danger" round block @click="openPaySheet">购买门票</van-button>
-      </div>
-
-      <!-- 评论模块 -->
-      <div class="section-head">
-        <div class="intro-title">评论</div>
-        <div class="pager">共 {{ totalComments }} 条</div>
-      </div>
-      
-      <!-- 评论输入 -->
-      <div class="comment-input-box">
-        <van-field
-          v-model="newComment"
-          rows="1"
-          autosize
-          type="textarea"
-          placeholder="发表你的看法..."
-          border
-          class="comment-field"
-        >
-          <template #button>
-            <van-button size="small" type="primary" :disabled="!newComment.trim()" @click="submitComment">发布</van-button>
-          </template>
-        </van-field>
-      </div>
-
-      <div
-        class="comment-list"
-        :class="{ scrollable: comments.length > 5, 'pull-bounce': pulling }"
-        ref="commentListRef"
-        @wheel="onCommentWheel"
-        @touchstart.passive="onCommentTouchStart"
-        @touchmove="onCommentTouchMove"
-        @touchend.passive="onCommentTouchEnd"
-      >
-        <div v-if="showScrollbarHint" class="scrollbar-hint"></div>
-        <div class="comment-item" v-for="c in comments" :key="c.id">
-          <van-image round width="40" height="40" :src="c.avatar || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
-          <div class="comment-content">
-            <div class="row">
-              <span class="user">{{ c.userName || c.user || '用户' }}</span>
-              <van-rate :model-value="c.rating" readonly size="14" gutter="2" />
+    <template v-else-if="scenic">
+      <!-- 顶部封面与基本信息 -->
+      <div class="cover" :style="{ backgroundImage: imageView.coverUrl ? `url('${imageView.coverUrl}')` : 'none' }">
+        <van-nav-bar left-text="返回" left-arrow @click-left="router.back()" />
+        <div class="hero-card">
+          <div class="hero-header">
+            <div class="hero-title">{{ scenic?.name || '景点' }}</div>
+            <div class="fav-btn" :class="{ active: isFav }" @click.stop="toggleFav">
+              <van-icon :name="isFav ? 'star' : 'star-o'" />
             </div>
-            <div class="text">{{ c.content }}</div>
-            <div class="time">{{ c.createTime || c.time }}</div>
           </div>
-          <van-icon 
-            v-if="userStore.isLoggedIn && (c.userId === userStore.user.id)" 
-            name="delete-o" 
-            class="delete-btn" 
-            @click.stop="deleteComment(c)" 
-          />
-        </div>
-        <div v-if="loadingMore" class="loading-more">
-          <van-loading type="spinner" size="18" />
-          <span>加载中...</span>
+          <div class="hero-sub">{{ scenic?.location || '未知位置' }}</div>
+          <div class="hero-tags">
+            <van-tag type="primary" plain>开放时间 {{ scenic?.openHours || '未知' }}</van-tag>
+            <van-tag type="warning" plain>票价 {{ formatPrice(scenic?.ticketPrice) }}</van-tag>
+          </div>
         </div>
       </div>
-    </div>
+
+      <!-- 内容卡片 -->
+      <div class="content-card">
+        <div class="intro">
+          <div class="intro-title">景点简介</div>
+          <div class="intro-text">{{ scenic?.description || '暂无简介' }}</div>
+        </div>
+
+        <van-cell-group inset>
+          <van-cell title="地理位置" :value="scenic?.location || '未知'" @click="openMap" is-link />
+          <van-cell title="开放时间" :value="scenic?.openHours || '未知'" />
+          <van-cell title="门票价格" :value="formatPrice(scenic?.ticketPrice)" />
+          <van-cell title="联系电话" :value="scenic?.contactPhone || '暂无'" @click="callPhone" is-link />
+        </van-cell-group>
+
+        <!-- 图集轮播 -->
+        <div v-if="imageView.imageUrls.length" class="gallery">
+          <van-swipe :autoplay="3000" lazy-render :show-indicators="true" class="gallery-swipe">
+            <van-swipe-item v-for="(img, idx) in imageView.imageUrls" :key="idx">
+              <img class="gallery-img" :src="img" alt="image" />
+            </van-swipe-item>
+          </van-swipe>
+        </div>
+
+        <!-- 底部操作 -->
+        <div class="actions">
+          <van-button type="primary" round block @click="openMap">导航到此</van-button>
+          <van-button type="success" round block plain @click="callPhone">咨询电话</van-button>
+          <van-button type="danger" round block @click="openPaySheet">购买门票</van-button>
+        </div>
+
+        <!-- 评论模块 -->
+        <div class="section-head">
+          <div class="intro-title">评论</div>
+          <div class="pager">共 {{ totalComments }} 条</div>
+        </div>
+        
+        <!-- 评论输入 -->
+        <div class="comment-input-box">
+          <van-field
+            v-model="newComment"
+            rows="1"
+            autosize
+            type="textarea"
+            placeholder="发表你的看法..."
+            border
+            class="comment-field"
+          >
+            <template #button>
+              <van-button size="small" type="primary" :disabled="!newComment.trim()" @click="submitComment">发布</van-button>
+            </template>
+          </van-field>
+        </div>
+
+        <div
+          class="comment-list"
+          :class="{ scrollable: comments.length > 5, 'pull-bounce': pulling }"
+          ref="commentListRef"
+          @wheel="onCommentWheel"
+          @touchstart.passive="onCommentTouchStart"
+          @touchmove="onCommentTouchMove"
+          @touchend.passive="onCommentTouchEnd"
+        >
+          <div v-if="showScrollbarHint" class="scrollbar-hint"></div>
+          <div class="comment-item" v-for="c in comments" :key="c.id">
+            <van-image round width="40" height="40" :src="resolveAvatar(c.userAvatar) || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
+            <div class="comment-content">
+              <div class="row">
+                <span class="user">{{ c.username || '用户' }}</span>
+                <van-rate :model-value="c.rating" readonly size="14" gutter="2" />
+              </div>
+              <div class="text">{{ c.content }}</div>
+              <div class="time">{{ c.createTime || c.time }}</div>
+            </div>
+            <van-icon 
+              v-if="userStore.isLoggedIn && (c.userId === userStore.user.id)" 
+              name="delete-o" 
+              class="delete-btn" 
+              @click.stop="deleteComment(c)" 
+            />
+          </div>
+          <div v-if="loadingMore" class="loading-more">
+            <van-loading type="spinner" size="18" />
+            <span>加载中...</span>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 
   <!-- 支付弹层 -->
@@ -479,23 +447,17 @@ async function startPay() {
     <div class="pay-title">选择支付方式</div>
     <van-radio-group v-model="payMethod">
       <van-cell-group>
-        <van-cell clickable @click="payMethod='wechat'">
-          <template #title>
-            <div class="pay-item">
-              <img class="pay-icon" src="/public/images/e3f52c00-0122-438b-8fa1-59d03ea1a848.png" alt="wechat" />
-              <span>微信支付</span>
-            </div>
+        <van-cell title="微信支付" clickable @click="payMethod='wechat'">
+          <template #icon>
+            <img class="pay-icon" :src="'/images/Snipaste_2026-03-02_14-44-51weixin.png'" alt="wechat" style="margin-right: 8px;" />
           </template>
           <template #right-icon>
             <van-radio name="wechat" />
           </template>
         </van-cell>
-        <van-cell clickable @click="payMethod='alipay'">
-          <template #title>
-            <div class="pay-item">
-              <img class="pay-icon" src="/public/images/99690364-15d9-4d57-9230-45b1773a0710.png" alt="alipay" />
-              <span>支付宝</span>
-            </div>
+        <van-cell title="支付宝" clickable @click="payMethod='alipay'">
+          <template #icon>
+            <img class="pay-icon" :src="'/images/Snipaste_2026-03-02_14-44-42.png'" alt="alipay" style="margin-right: 8px;" />
           </template>
           <template #right-icon>
             <van-radio name="alipay" />
@@ -513,8 +475,12 @@ async function startPay() {
 
 <style scoped>
 .scenic-detail { background-color: #f5f6f7; min-height: 100vh; }
-.cover { position: relative; height: 240px; background-color: #eaeef3; background-size: cover; background-position: center; }
-.hero-card { position: absolute; left: 12px; right: 12px; bottom: -36px; background: #fff; border-radius: 18px; box-shadow: 0 10px 24px rgba(0,0,0,0.10); padding: 12px 14px; }
+.loading-state { padding: 50px 0; display: flex; justify-content: center; }
+.cover { position: relative; height: 240px; background-color: #eaeef3; background-size: cover; background-position: center; background-repeat: no-repeat; }
+.cover :deep(.van-nav-bar) { background: transparent; }
+.cover :deep(.van-nav-bar .van-icon), .cover :deep(.van-nav-bar__text) { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+.cover :deep(.van-hairline--bottom:after) { border-bottom-width: 0; }
+.hero-card { position: absolute; left: 12px; right: 12px; bottom: -36px; background: #fff; border-radius: 18px; box-shadow: 0 10px 24px rgba(0,0,0,0.10); padding: 12px 14px; z-index: 1; }
 .hero-header { display: flex; justify-content: space-between; align-items: flex-start; }
 .hero-title { font-weight: 800; font-size: 18px; color: #143a72; flex: 1; }
 .fav-btn { width: 36px; height: 36px; border: 2px solid #ddd; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #999; transition: all 0.3s; flex-shrink: 0; margin-left: 12px; }
@@ -555,6 +521,6 @@ async function startPay() {
 .scrollbar-hint { position: absolute; top: 8px; right: 3px; width: 4px; height: 40%; background: linear-gradient(180deg, #c5d8f7, #90caf9); border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.12); opacity: 0; animation: hintFade 800ms ease; }
 .pay-title { font-weight: 700; font-size: 16px; margin-bottom: 8px; }
 .pay-item { display: flex; align-items: center; gap: 8px; }
-.pay-icon { width: 22px; height: 22px; border-radius: 6px; object-fit: cover; }
+.pay-icon { width: 28px; height: 28px; border-radius: 4px; object-fit: contain; }
 .pay-qty { display: flex; align-items: center; justify-content: space-between; margin: 12px 4px; }
 </style>

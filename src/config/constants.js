@@ -70,6 +70,8 @@ export const IMAGE_CONFIG = {
 export const API_CONFIG = {
   // API 基础地址（空字符串表示使用同源代理）
   BASE_URL: '',
+  // 后端 Origin（用于需要直连后端而不走前端代理的接口）
+  BACKEND_ORIGIN: 'http://localhost:9002',
   
   // 请求超时时间（毫秒）
   TIMEOUT: 30000,

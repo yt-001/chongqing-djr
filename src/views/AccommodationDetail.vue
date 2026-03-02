@@ -5,14 +5,19 @@ import { showToast } from 'vant'
 import { fetchAccommodationById } from '@/api/modules/accommodations.js'
 import { mapFacilitiesToItems } from '@/utils/facilityIcons.js'
 import { processImageData } from '@/utils/imageUtils.js'
+import { useUserStore } from '@/store/user.js'
+import { checkFavoriteAccommodation, addFavoriteAccommodation, removeFavoriteAccommodation } from '@/api/modules/favorites.js'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 
 const detail = ref(null)
 const loading = ref(true)
 const payVisible = ref(false)
 const quantity = ref(1)
+const isFav = ref(false)
+const favLoading = ref(false)
 
 // 模拟房东信息（如果后端没有返回的话）
 const hostInfo = ref({
@@ -29,7 +34,47 @@ const hostInfo = ref({
 
 onMounted(() => {
   loadData()
+  checkFavorite()
 })
+
+async function checkFavorite() {
+  if (!userStore.isLoggedIn) return
+  const id = route.params.id
+  try {
+    const res = await checkFavoriteAccommodation(id)
+    isFav.value = !!res.data
+  } catch (e) {
+    console.error('检查收藏状态失败', e)
+  }
+}
+
+async function onToggleFavorite() {
+  if (!userStore.isLoggedIn) {
+    showToast('请先登录')
+    router.push({ name: 'login', query: { redirect: route.fullPath } })
+    return
+  }
+  
+  if (favLoading.value) return
+  favLoading.value = true
+  
+  const id = route.params.id
+  try {
+    if (isFav.value) {
+      await removeFavoriteAccommodation(id)
+      isFav.value = false
+      showToast('已取消收藏')
+    } else {
+      await addFavoriteAccommodation(id)
+      isFav.value = true
+      showToast('收藏成功')
+    }
+  } catch (e) {
+    showToast(e.message || '操作失败')
+  } finally {
+    favLoading.value = false
+  }
+}
 
 async function loadData() {
   const id = route.params.id
@@ -129,8 +174,8 @@ async function onConfirmPay() {
       <div class="nav-title">
         {{ detail?.name || '民宿详情' }}
       </div>
-      <div class="nav-right">
-        <van-icon name="share-o" size="20" color="#333" />
+      <div class="nav-right" @click="onToggleFavorite">
+        <van-icon :name="isFav ? 'star' : 'star-o'" size="20" :color="isFav ? '#ff5000' : '#333'" />
       </div>
     </div>
 
@@ -214,6 +259,10 @@ async function onConfirmPay() {
           <div class="desc-content">
             {{ detail?.description || '暂无描述' }}
           </div>
+          <div class="time-info" v-if="detail?.createTime">
+            <div class="time-item">创建于：{{ detail.createTime }}</div>
+            <div class="time-item" v-if="detail.updateTime">最后更新：{{ detail.updateTime }}</div>
+          </div>
         </div>
         
         <!-- 占位，防遮挡 -->
@@ -223,8 +272,7 @@ async function onConfirmPay() {
       <!-- 底部操作栏 -->
       <van-action-bar>
         <van-action-bar-icon icon="chat-o" text="客服" color="#ee0a24" />
-        <van-action-bar-icon icon="cart-o" text="购物车" />
-        <van-action-bar-icon icon="star-o" text="收藏" color="#ff5000" />
+        <van-action-bar-icon :icon="isFav ? 'star' : 'star-o'" text="收藏" :color="isFav ? '#ff5000' : '#333'" @click="onToggleFavorite" />
         <van-action-bar-button type="warning" text="加入行程" />
         <van-action-bar-button type="primary" text="联系前台" @click="onCall(detail?.contactPhone)" />
         <van-action-bar-button type="danger" text="立即预定" @click="onBook" />
@@ -475,6 +523,15 @@ async function onConfirmPay() {
   line-height: 1.6;
   white-space: pre-wrap;
 }
+
+.time-info {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed #eee;
+  font-size: 12px;
+  color: #999;
+}
+.time-item { margin-bottom: 4px; }
 
 .loading-box {
   display: flex;

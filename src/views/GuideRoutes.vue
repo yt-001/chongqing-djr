@@ -30,6 +30,7 @@ const goToDetail = (routeId) => {
 }
 
 const getCoverUrl = (img) => {
+  // 仅使用数据库真实数据转换后的结果，不再使用前端兜底图
   return processImageData({ coverImage: img }).coverUrl
 }
 
@@ -56,10 +57,10 @@ onMounted(() => {
 
       <div v-else-if="routes.length" class="route-list">
         <div 
-          v-for="item in routes" 
-          :key="item.id" 
+          v-for="(item, idx) in routes" 
+          :key="item.id ?? idx" 
           class="route-card"
-          @click="goToDetail(item.id)"
+          @click="item.id && goToDetail(item.id)"
         >
           <div class="card-cover">
             <img :src="getCoverUrl(item.coverImage)" alt="cover" loading="lazy" />
@@ -72,7 +73,7 @@ onMounted(() => {
             </div>
           </div>
           <div class="card-info">
-            <h3 class="card-title">{{ item.name }}</h3>
+            <h3 class="card-title">{{ item.name || '未命名路线' }}</h3>
             <p class="card-desc">{{ item.description || '暂无描述' }}</p>
           </div>
         </div>

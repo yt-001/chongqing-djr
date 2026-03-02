@@ -28,6 +28,7 @@ export default defineConfig({
       '/restaurants': { target: 'http://localhost:9002', changeOrigin: true },
       '/accommodations': { target: 'http://localhost:9002', changeOrigin: true },
       '/intangible-cultures': { target: 'http://localhost:9002', changeOrigin: true },
+      '/guide-routes': { target: 'http://localhost:9002', changeOrigin: true },
       '/comments': { target: 'http://localhost:9002', changeOrigin: true },
       '/favorites': { target: 'http://localhost:9002', changeOrigin: true },
       '/users': { target: 'http://localhost:9002', changeOrigin: true },
@@ -38,9 +39,11 @@ export default defineConfig({
       '/accommodation-types': { target: 'http://localhost:9002', changeOrigin: true },
       '/accommodation-facilities': { target: 'http://localhost:9002', changeOrigin: true },
       // 代理静态图片资源，从后端获取
-      '/public/images': { 
+      // 注意：避免使用 /public/images 这种会让 Vite 产生导入解析错误的路径
+      '/images': { 
         target: 'http://localhost:9002', 
-        changeOrigin: true
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/images/, '/public/images')
       }
     }
   }

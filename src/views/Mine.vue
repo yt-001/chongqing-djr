@@ -173,8 +173,10 @@ function onAvatarFileChange(e) {
 function resolveAvatarUrl(nameOrPath) {
   if (!nameOrPath) return ''
   const s = String(nameOrPath)
-  if (/^https?:\/\//.test(s) || s.startsWith('/')) return s
-  return `/public/images/${s}`
+  if (/^https?:\/\//.test(s)) return s
+  // 统一到 /images 前缀，去掉可能的 /public/images 或 /images 重复前缀
+  const fileName = s.replace(/^\/public\/images\//, '').replace(/^\/images\//, '')
+  return `/images/${fileName}`
 }
 
 // 占位：各功能入口点击

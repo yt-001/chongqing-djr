@@ -3,10 +3,10 @@ import { request } from '../../http.js'
 
 /**
  * 分页查询用户列表（管理端）
- * 路径：POST /users/admin/page
+ * 路径：POST /users/page
  */
 export function fetchAdminUsersPage(payload) {
-  return request('/users/admin/page', {
+  return request('/users/page', {
     method: 'POST',
     body: payload,
   })

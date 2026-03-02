@@ -1,5 +1,6 @@
 // 向导路线/向导图库相关接口
 import { request } from '../http.js'
+import { API_CONFIG } from '../../config/constants.js'
 
 /**
  * 获取向导图库首页卡片列表
@@ -19,7 +20,8 @@ import { request } from '../http.js'
  * }>>}
  */
 export function fetchGuideRouteCards() {
-  return request('/guide-routes/cards', { method: 'GET', timeoutMs: 10000 })
+  // 直连后端，避免受前端代理/路由影响
+  return request(`${API_CONFIG.BACKEND_ORIGIN}/guide-routes/cards`, { method: 'GET', timeoutMs: 10000 })
 }
 
 /**

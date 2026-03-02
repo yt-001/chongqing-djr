@@ -18,9 +18,12 @@ export function processImageData(imageData) {
   const toStringUrl = (value) => {
     const raw = String(value ?? '').trim()
     if (!raw) return ''
-    // 统一加上 /public/images/ 前缀，并去除可能已存在的重复前缀
-    const fileName = raw.replace(/^\/(public\/)?images\//, '')
-    return `/public/images/${fileName}`
+    // 兼容处理：去除后端可能返回的绝对路径前缀（如 F:/djr-img/）
+    // 以及去除可能已存在的 /public/images/ 或 /images/ 前缀
+    const fileName = raw.replace(/^.*[\\\/]djr-img[\\\/]/i, '')
+                        .replace(/^\/(public\/)?images\//, '')
+    // 统一加上 /images/ 前缀，这会通过 Vite 代理重写为后端的 /public/images/
+    return `/images/${fileName}`
   }
 
   if (imageData.coverImage) {

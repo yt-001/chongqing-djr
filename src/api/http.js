@@ -15,6 +15,8 @@ export async function request(url, options = {}) {
   const finalHeaders = { ...jsonHeaders(token), ...headers }
   const controller = typeof timeoutMs === 'number' && timeoutMs > 0 ? new AbortController() : null
   const init = { method, headers: finalHeaders, credentials: 'include', signal: controller?.signal }
+  // 允许传入绝对地址，避免与 BASE_URL 叠加
+  const fullUrl = /^(https?:)?\/\//.test(url) ? url : (BASE_URL + url)
   if (body !== undefined) {
     init.body = typeof body === 'string' ? body : JSON.stringify(body)
   }
@@ -23,7 +25,7 @@ export async function request(url, options = {}) {
     if (controller) {
       timer = setTimeout(() => controller.abort(), timeoutMs)
     }
-    const resp = await fetch(BASE_URL + url, init)
+    const resp = await fetch(fullUrl, init)
     const text = await resp.text()
     const raw = safeJsonParse(text)
     if (!resp.ok) {

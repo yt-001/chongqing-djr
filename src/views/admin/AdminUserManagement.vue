@@ -5,8 +5,8 @@
       <div class="search-row">
         <el-input v-model="query.keyword" placeholder="搜索用户名/手机号/邮箱" clearable @clear="onSearch" />
         <el-select v-model="query.role" placeholder="角色" clearable style="width: 120px">
-          <el-option label="普通用户" value="user" />
-          <el-option label="管理员" value="admin" />
+          <el-option label="普通用户" :value="1" />
+          <el-option label="管理员" :value="0" />
         </el-select>
         <el-button type="primary" @click="onSearch">查询</el-button>
         <el-button @click="onReset">重置</el-button>
@@ -21,7 +21,7 @@
           <el-table-column prop="id" label="ID" width="80" align="center" />
           <el-table-column label="头像" width="80" align="center">
             <template #default="{ row }">
-              <el-avatar :size="40" :src="row.avatarUrl || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
+              <el-avatar :size="40" :src="toImagesPreview(row.avatarUrl) || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
             </template>
           </el-table-column>
           <el-table-column prop="username" label="用户名" min-width="120" />
@@ -29,8 +29,8 @@
           <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip />
           <el-table-column prop="role" label="角色" width="100" align="center">
             <template #default="{ row }">
-              <el-tag :type="row.role === 'admin' ? 'danger' : 'info'">
-                {{ row.role === 'admin' ? '管理员' : '用户' }}
+              <el-tag :type="row.role === 0 ? 'danger' : 'info'">
+                {{ row.role === 0 ? '管理员' : '用户' }}
               </el-tag>
             </template>
           </el-table-column>
@@ -69,6 +69,14 @@
       destroy-on-close
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
+        <el-form-item label="头像">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <el-avatar :size="48" :src="toImagesPreview(form.avatarUrl) || 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'" />
+            <el-button type="primary" plain @click="triggerAvatarUpload">上传头像</el-button>
+            <el-button v-if="form.avatarUrl" plain @click="clearAvatar">清除</el-button>
+            <input ref="avatarInputRef" type="file" accept="image/*" style="display:none" @change="onAvatarFileChange" />
+          </div>
+        </el-form-item>
         <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" placeholder="请输入用户名" />
         </el-form-item>
@@ -80,8 +88,8 @@
         </el-form-item>
         <el-form-item label="角色" prop="role">
           <el-radio-group v-model="form.role">
-            <el-radio label="user">普通用户</el-radio>
-            <el-radio label="admin">管理员</el-radio>
+            <el-radio :label="1">普通用户</el-radio>
+            <el-radio :label="0">管理员</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="新密码" prop="password" v-if="dialog.mode === 'edit'">
@@ -100,6 +108,13 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { fetchAdminUsersPage, updateAdminUser, deleteAdminUser, resetAdminUserPassword } from '@/api'
+import { uploadSingleImage } from '@/api'
+
+function toImagesPreview(p) {
+  if (!p || typeof p !== 'string') return ''
+  const fileName = String(p).replace(/^\/public\/images\//, '').replace(/^\/images\//, '')
+  return `/images/${fileName}`
+}
 
 // 列表数据与状态
 const loading = ref(false)
@@ -138,7 +153,8 @@ const form = reactive({
   username: '',
   phone: '',
   email: '',
-  role: 'user',
+  avatarUrl: '',
+  role: 1,
   password: '' // 仅用于重置密码
 })
 
@@ -161,9 +177,7 @@ async function loadData() {
       pageSize: page.size,
       query: { ...query }
     }
-    // 如果是后端对接，这里调用 fetchAdminUsersPage(payload)
-    // 这里做模拟数据演示，除非后端已就绪
-    const res = await fetchAdminUsersPage(payload).catch(mockFetch)
+    const res = await fetchAdminUsersPage(payload)
     list.value = res.list || []
     total.value = res.total || 0
   } catch (e) {
@@ -175,24 +189,6 @@ async function loadData() {
       loading.value = false
       refreshTimer = null
     }, remaining > 0 ? remaining : 0)
-  }
-}
-
-// 模拟后端数据（如果没有真实接口）
-async function mockFetch() {
-  // 延迟模拟
-  await new Promise(r => setTimeout(r, 500))
-  return {
-    list: Array.from({ length: page.size }, (_, i) => ({
-      id: (page.current - 1) * page.size + i + 1,
-      username: `User_${(page.current - 1) * page.size + i + 1}`,
-      phone: `1380013800${i}`,
-      email: `user${i}@example.com`,
-      role: i === 0 ? 'admin' : 'user',
-      avatarUrl: '',
-      createTime: '2025-01-01 12:00:00'
-    })),
-    total: 100
   }
 }
 
@@ -208,9 +204,40 @@ function onEdit(row) {
   form.username = row.username
   form.phone = row.phone
   form.email = row.email
-  form.role = row.role || 'user'
+  form.avatarUrl = row.avatarUrl || ''
+  form.role = row.role ?? 1
   form.password = ''
   dialog.visible = true
+}
+
+function triggerAvatarUpload() {
+  avatarInputRef.value?.click()
+}
+
+const avatarInputRef = ref(null)
+async function onAvatarFileChange(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  try {
+    const urls = await uploadSingleImage(file)
+    if (urls && urls.length > 0) {
+      // 统一为可预览的 /images 前缀
+      const fileName = String(urls[0]).replace(/^\/public\/images\//, '').replace(/^\/images\//, '')
+      form.avatarUrl = `/images/${fileName}`
+      ElMessage.success('头像上传成功')
+    } else {
+      ElMessage.error('上传失败')
+    }
+  } catch (err) {
+    ElMessage.error(err.message || '上传失败')
+  } finally {
+    // 允许选择同一文件
+    e.target.value = ''
+  }
+}
+
+function clearAvatar() {
+  form.avatarUrl = ''
 }
 
 // 提交
@@ -226,6 +253,7 @@ async function onSubmit() {
       username: form.username,
       phone: form.phone,
       email: form.email,
+      avatarUrl: form.avatarUrl || '',
       role: form.role
     }
     await updateAdminUser(payload) // 真实接口
