@@ -6,18 +6,30 @@ import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { processImageData } from '@/utils/imageUtils.js'
 import { fetchAttractionsPage } from '../api/modules/attractions.js'
+import { useUserStore } from '@/store/user'
+
+const userStore = useUserStore()
 
 // 分类点击事件（示例）
 const onCategoryClick = (name) => {
   if (name === '旅游地图') {
+    if (!userStore.isLoggedIn) {
+      showToast({ message: '请先登录以体验完整功能', position: 'top' })
+    }
     router.push({ name: 'map-navigation' })
     return
   }
   if (name === '酒店民宿') {
+    if (!userStore.isLoggedIn) {
+      showToast({ message: '请先登录以体验完整功能', position: 'top' })
+    }
     router.push({ name: 'accommodation-list' })
     return
   }
   if (name === '路线推荐') {
+    if (!userStore.isLoggedIn) {
+      showToast({ message: '请先登录以体验完整功能', position: 'top' })
+    }
     router.push({ name: 'guide-routes' })
     return
   }
@@ -66,6 +78,10 @@ const pageNum = ref(1)
 const onOpenItem = (id) => {
   if (!id) {
     return showToast({ message: '无效的景点ID', position: 'top' })
+  }
+  if (!userStore.isLoggedIn) {
+    showToast({ message: '请先登录以查看景点详情', position: 'top' })
+    return
   }
   router.push({ name: 'scenic-detail', params: { id } })
 }

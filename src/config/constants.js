@@ -68,8 +68,8 @@ export const IMAGE_CONFIG = {
  * API 相关配置
  */
 export const API_CONFIG = {
-  // API 基础地址
-  BASE_URL: 'http://localhost:9002',
+  // API 基础地址（空字符串表示使用同源代理）
+  BASE_URL: '',
   
   // 请求超时时间（毫秒）
   TIMEOUT: 30000,
@@ -103,7 +103,7 @@ export const UPLOAD_CONFIG = {
  */
 export const APP_CONFIG = {
   // 应用名称
-  APP_NAME: '重庆文旅管理系统',
+  APP_NAME: '梁平文旅管理系统',
   
   // 应用版本
   VERSION: '1.0.0',

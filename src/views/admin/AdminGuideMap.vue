@@ -285,8 +285,8 @@ async function initMap() {
     const TMap = await loadQQMap(QQ_MAP_KEY)
     TMapObj = TMap
     
-    // 初始化地图，中心设为重庆
-    const center = new TMap.LatLng(29.56301, 106.551557)
+    // 初始化地图，中心设为梁平
+    const center = new TMap.LatLng(30.6768, 107.8025)
     mapInstance.value = new TMap.Map(document.getElementById('map-container'), {
       center: center,
       zoom: 12,
@@ -631,9 +631,9 @@ function handleAttractionChange(val) {
        // 如果没有坐标，尝试用名称搜索 (Client-side search is tricky without plugin, 
        // but let's assume we rely on backend or just don't move if no coords)
        // 或者简单的：ElMessage.info('该景点暂无坐标信息')
-       // 这里我们可以模拟一下：如果名字里有"动物园"，飞到重庆动物园
-       if (item.name.includes('动物园')) {
-         mapInstance.value.panTo(new TMapObj.LatLng(29.5078, 106.5101)) // 重庆动物园坐标
+       // 这里我们可以模拟一下：如果名字里有"双桂湖"，飞到双桂湖
+       if (item.name.includes('双桂湖')) {
+         mapInstance.value.panTo(new TMapObj.LatLng(30.6768, 107.8025)) // 双桂湖坐标
          mapInstance.value.setZoom(16)
        } else {
          ElMessage.info(`已切换到：${item.name} (暂无精确坐标跳转)`)

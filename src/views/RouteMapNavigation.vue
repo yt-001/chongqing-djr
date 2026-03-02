@@ -72,8 +72,8 @@ async function initMap() {
     const TMap = await loadQQMap(QQ_MAP_KEY)
     TMapLatLng = TMap.LatLng 
     
-    // 中心点：重庆 (默认)
-    const center = new TMap.LatLng(29.564706, 106.550713)
+    // 中心点：梁平 (默认)
+    const center = new TMap.LatLng(30.6768, 107.8025)
 
     mapInstance.value = new TMap.Map(mapContainer.value, {
       center: center,

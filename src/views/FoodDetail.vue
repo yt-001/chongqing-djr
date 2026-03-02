@@ -46,7 +46,9 @@ const specialDishes = computed(() => {
     .map((item, idx) => {
       const name = item.name || item.title || `菜品 ${idx + 1}`
       const price = item.price ?? item.cost ?? item.priceYuan ?? ''
-      const url = item.imageUrl || item.image || item.img || item.coverImage || ''
+      const rawUrl = item.imageUrl || item.image || item.img || item.coverImage || ''
+      // 使用通用的图片处理工具进行路径归一化
+      const { coverUrl: url } = processImageData({ coverImage: rawUrl })
       const rawRec = item.isRecommended ?? item.recommended ?? item.is_recommended ?? item.isHot ?? item.hot ?? 0
       const isRecommended = Number(rawRec) === 1 || rawRec === true
       const id = item.id ?? item.dishId ?? idx

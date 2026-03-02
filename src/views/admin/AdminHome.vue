@@ -3,7 +3,7 @@
   <el-container class="pc-admin">
     <!-- 左侧导航栏 -->
     <el-aside width="165px" class="pc-admin__aside">
-      <div class="logo">重庆文旅·管理端</div>
+      <div class="logo">梁平文旅·管理端</div>
       <AdminSidebar :menus="menusRef" :active-menu="activeMenu" @select="onSelectMenu" />
     </el-aside>
 
@@ -100,8 +100,9 @@ const defaultAvatar = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
  */
 function toImagesPreview(p) {
   if (!p || typeof p !== 'string') return ''
-  const fileName = String(p).replace(/^\/images\//, '')
-  return `/images/${fileName}`
+  // 兼容处理：去除可能已存在的 /public/images/ 或 /images/ 前缀，统一加上 /public/images/
+  const fileName = String(p).replace(/^\/public\/images\//, '').replace(/^\/images\//, '')
+  return `/public/images/${fileName}`
 }
 
 // 头部显示的头像与用户名（从 Store 映射）

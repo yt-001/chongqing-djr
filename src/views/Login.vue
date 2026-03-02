@@ -109,8 +109,8 @@ const goRegister = (role) => {
 
     <!-- 顶部品牌区文案 -->
     <div class="brand">
-      <h1>欢迎登录</h1>
-      <p>请选择登录方式</p>
+      <h1>梁平文旅 · 欢迎回来</h1>
+      <p>探索双桂福地，悦享柚乡竹海</p>
     </div>
 
     <!-- 桌面端：Element Plus 布局；移动端：Vant 布局 -->

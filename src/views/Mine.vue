@@ -166,7 +166,7 @@ function onAvatarFileChange(e) {
 }
 
 /**
- * 头像显示路径拼接（/public/images + 文件名或相对路径）
+ * 头像显示路径拼接（/images + 文件名或相对路径）
  * @param {string} nameOrPath
  * @returns {string}
  */
@@ -178,8 +178,24 @@ function resolveAvatarUrl(nameOrPath) {
 }
 
 // 占位：各功能入口点击
-const onFeatureClick = (name) => {
-  showToast({ message: `${name} 开发中`, position: 'top' })
+const onFeatureClick = (name, routeName) => {
+  if (!isLoggedIn.value) {
+    showToast({ message: '请先登录以查看相关内容', position: 'top' })
+    return
+  }
+  if (routeName) {
+    router.push({ name: routeName })
+  } else {
+    showToast({ message: `${name} 开发中`, position: 'top' })
+  }
+}
+
+const handleOpenView = () => {
+  if (!isLoggedIn.value) {
+    showToast({ message: '请先登录以查看个人信息', position: 'top' })
+    return
+  }
+  openView()
 }
 </script>
 
@@ -202,12 +218,12 @@ const onFeatureClick = (name) => {
     <!-- 快捷功能区 1 -->
     <van-cell-group inset class="block">
       <van-grid :column-num="4" clickable>
-        <van-grid-item icon="orders-o" text="待消费卷" @click="router.push({ name: 'pending-vouchers' })" />
+        <van-grid-item icon="orders-o" text="待消费卷" @click="onFeatureClick('待消费卷', 'pending-vouchers')" />
         <van-grid-item icon="service-o" text="客服中心" @click="onFeatureClick('客服中心')" />
-        <van-grid-item icon="star-o" text="我的收藏" @click="router.push({ name: 'my-favorites' })" />
+        <van-grid-item icon="star-o" text="我的收藏" @click="onFeatureClick('我的收藏', 'my-favorites')" />
         <van-grid-item icon="coupon-o" text="优惠券" @click="onFeatureClick('优惠券')" />
-        <van-grid-item icon="clock-o" text="未完成" @click="router.push({ name: 'incomplete-orders' })" />
-        <van-grid-item icon="passed" text="已完成" @click="router.push({ name: 'completed-orders' })" />
+        <van-grid-item icon="clock-o" text="未完成" @click="onFeatureClick('未完成', 'incomplete-orders')" />
+        <van-grid-item icon="passed" text="已完成" @click="onFeatureClick('已完成', 'completed-orders')" />
       </van-grid>
     </van-cell-group>
 
@@ -218,7 +234,7 @@ const onFeatureClick = (name) => {
         <van-grid-item icon="award-o" text="平台资质" @click="onFeatureClick('平台资质')" />
         <van-grid-item icon="friends-o" text="我要合作" @click="onFeatureClick('我要合作')" />
         <van-grid-item icon="chat-o" text="消息通知" @click="onFeatureClick('消息通知')" />
-        <van-grid-item icon="manager-o" text="个人信息" @click="openView" />
+        <van-grid-item icon="manager-o" text="个人信息" @click="handleOpenView" />
         <van-grid-item icon="notes-o" text="规则中心" @click="onFeatureClick('规则中心')" />
       </van-grid>
     </van-cell-group>

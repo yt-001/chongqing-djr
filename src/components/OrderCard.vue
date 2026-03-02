@@ -113,8 +113,8 @@ function onClickCard() {}
 <style scoped>
 .order-card { background: #fff; border: 1px solid #e6f0fb; border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
 .hd { display: flex; align-items: center; justify-content: space-between; }
-.title { display: flex; align-items: center; gap: 8px; }
-.name { font-weight: 700; color: #143a72; }
+ .title { display: flex; align-items: center; gap: 8px; }
+ .name { font-weight: 700; color: #143a72; }
 .type { font-size: 12px; padding: 2px 8px; border-radius: 10px; }
 .meta { display: flex; gap: 12px; color: #607d8b; font-size: 12px; }
 .desc { color: #37474f; font-size: 13px; }

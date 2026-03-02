@@ -143,8 +143,9 @@ const defaultAvatar = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
 
 function toImagesPreview(p) {
   if (!p || typeof p !== 'string') return ''
-  const fileName = String(p).replace(/^\/images\//, '')
-  return `/images/${fileName}`
+  // 兼容处理：去除可能已存在的 /public/images/ 或 /images/ 前缀，统一加上 /public/images/
+  const fileName = String(p).replace(/^\/public\/images\//, '').replace(/^\/images\//, '')
+  return `/public/images/${fileName}`
 }
 
 // 当前用户信息
@@ -228,9 +229,10 @@ async function saveUserInfoWithUpload() {
     // 如果有新选择的头像文件，先上传
     if (avatarFile.value) {
       try {
-        const urls = await uploadSingleImage(avatarFile.value)
-        const firstUrl = Array.isArray(urls) ? urls[0] : urls
-        avatarUrl = firstUrl || ''
+        const filenames = await uploadSingleImage(avatarFile.value)
+        const filename = Array.isArray(filenames) ? filenames[0] : filenames
+        // 存储到数据库时，统一带上 /public/images/ 前缀，保持与景点、餐厅等数据一致
+        avatarUrl = `/public/images/${filename}`
       } catch (uploadError) {
         ElMessage.error('头像上传失败')
         return

@@ -512,8 +512,8 @@ async function startPay() {
 </template>
 
 <style scoped>
-.scenic-detail { background: #f5f6f7; min-height: 100vh; }
-.cover { position: relative; height: 240px; background: #eaeef3; background-size: cover; background-position: center; }
+.scenic-detail { background-color: #f5f6f7; min-height: 100vh; }
+.cover { position: relative; height: 240px; background-color: #eaeef3; background-size: cover; background-position: center; }
 .hero-card { position: absolute; left: 12px; right: 12px; bottom: -36px; background: #fff; border-radius: 18px; box-shadow: 0 10px 24px rgba(0,0,0,0.10); padding: 12px 14px; }
 .hero-header { display: flex; justify-content: space-between; align-items: flex-start; }
 .hero-title { font-weight: 800; font-size: 18px; color: #143a72; flex: 1; }

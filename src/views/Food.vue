@@ -131,6 +131,10 @@ const onClearSearch = () => {
 }
 
 const onCardClick = (id) => {
+  if (!userStore.isLoggedIn) {
+    showToast({ message: '请先登录以查看美食详情', position: 'top' })
+    return
+  }
   router.push(`/food/${id}`)
 }
 
@@ -426,6 +430,9 @@ async function onViewChange(name) {
   }
   loading.value = true
   if (String(name) === 'fav') {
+    if (!userStore.isLoggedIn) {
+      showToast({ message: '请先登录以查看我的收藏', position: 'top' })
+    }
     await runWithAreaLoading(async () => {
       await loadFavorites(true)
     }).finally(() => {
@@ -503,7 +510,7 @@ async function loadRecommendedDishes(reset = false) {
 
 <template>
   <div class="food-list-page">
-    <van-search v-model="searchValue" placeholder="搜索校园美食" @search="onSearch" @clear="onClearSearch" />
+    <van-search v-model="searchValue" placeholder="搜索梁平美食" @search="onSearch" @clear="onClearSearch" />
 
     <van-swipe class="food-swipe" :autoplay="3000" indicator-color="white">
       <van-swipe-item v-for="item in swipeItems" :key="item.id">

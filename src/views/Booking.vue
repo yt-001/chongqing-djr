@@ -164,14 +164,6 @@ onMounted(() => {
         </div>
         
         <div class="card-body">
-          <van-image
-            width="80"
-            height="80"
-            radius="8"
-            fit="cover"
-            :src="getCover(item)"
-            class="product-img"
-          />
           <div class="info">
             <div class="title">{{ item.productName || '未知住宿' }}</div>
             <div class="time">下单时间：{{ item.createTime }}</div>

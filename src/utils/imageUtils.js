@@ -17,7 +17,10 @@ export function processImageData(imageData) {
 
   const toStringUrl = (value) => {
     const raw = String(value ?? '').trim()
-    return raw || ''
+    if (!raw) return ''
+    // 统一加上 /public/images/ 前缀，并去除可能已存在的重复前缀
+    const fileName = raw.replace(/^\/(public\/)?images\//, '')
+    return `/public/images/${fileName}`
   }
 
   if (imageData.coverImage) {

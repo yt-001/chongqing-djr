@@ -2,6 +2,7 @@
 import { useRoute, useRouter } from 'vue-router'
 import { ref, watch, onMounted } from 'vue'
 import { useUserStore } from '@/store/user'
+import { showToast } from 'vant'
 // 使用 Vant 的 Tabbar 代替 Element Plus 菜单
 
 // 选中的 Tab 索引
@@ -21,6 +22,12 @@ watch(() => route.name, (name) => {
 
 // 切换 Tab
 const onTabChange = (name) => {
+  // 检查登录状态：如果点击的是推荐、美食、预定或我的，且未登录，则给出提示
+  const needLoginTabs = ['recommend', 'food', 'booking', 'mine']
+  if (needLoginTabs.includes(name) && !userStore.isLoggedIn) {
+    showToast({ message: '请先登录以体验完整功能', position: 'top' })
+  }
+
   if (name === 'home') router.push('/')
   if (name === 'recommend') router.push('/recommend')
   if (name === 'food') router.push('/food')

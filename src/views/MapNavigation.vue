@@ -30,8 +30,8 @@ async function initMap() {
     TMapLatLng = TMap.LatLng // 保存引用
     
     // 注意：腾讯地图 GL 的 LatLng 构造函数是 (lat, lng)，这与高德/百度数组 [lng, lat] 不同
-    // 中心点：重庆
-    const center = new TMap.LatLng(29.564706, 106.550713)
+    // 中心点：梁平
+    const center = new TMap.LatLng(30.6768, 107.8025)
 
     mapInstance.value = new TMap.Map(mapContainer.value, {
       center: center,

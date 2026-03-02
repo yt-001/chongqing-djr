@@ -5,8 +5,10 @@ import { showToast } from 'vant'
 import { processImageData } from '@/utils/imageUtils.js'
 import { fetchAccommodationsPage } from '../api/modules/accommodations.js'
 import { fetchAccommodationTypesPage } from '@/api'
+import { useUserStore } from '@/store/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 const searchValue = ref('')
 
 // 轮播图数据
@@ -33,8 +35,19 @@ const onSearch = (val) => {
 }
 
 const onCategoryClick = (name) => {
+  if (!userStore.isLoggedIn) {
+    showToast({ message: '请先登录以体验完整功能', position: 'top' })
+  }
   const cat = categories.value.find(c => c.name === name)
-  selectedTypeId.value = cat?.id || null
+  console.log('[DEBUG] Category Click:', { name, id: cat?.id })
+  
+  // 切换选中：如果点击已选中的，则取消选中
+  if (selectedTypeId.value === cat?.id) {
+    selectedTypeId.value = null
+  } else {
+    selectedTypeId.value = cat?.id || null
+  }
+  
   pageNum.value = 1
   hasMore.value = true
   list.value = []
@@ -58,6 +71,10 @@ const onCardClick = (id) => {
    */
   if (!id && id !== 0) {
     return showToast({ message: '数据异常：缺少ID', position: 'top' })
+  }
+  if (!userStore.isLoggedIn) {
+    showToast({ message: '请先登录以查看住宿详情', position: 'top' })
+    return
   }
   const path = `/accommodations/${id}`
   router.push({ path }).catch(() => {
@@ -84,7 +101,7 @@ function getTypeText(item) {
   const name = item?.typeName
   if (name) return name
   const id = item?.typeId ?? item?.type_id
-  const map = { 1: '酒店', 2: '民宿', 3: '客栈' }
+  const map = { 1: '酒店', 2: '民宿', 3: '农家乐', 4: '青年旅舍', 5: '客栈公寓', 6: '精品酒店', 7: '帐篷营地' }
   return map[id] || '住宿'
 }
 
@@ -109,16 +126,23 @@ const loadData = async (isLoadMore = false) => {
   }
 
   try {
+    const queryObj = {}
+    if (searchValue.value) queryObj.name = searchValue.value
+    if (selectedTypeId.value !== null && selectedTypeId.value !== undefined) {
+      queryObj.typeId = selectedTypeId.value
+    }
+
     const payload = {
       pageNum: pageNum.value,
       pageSize: 10,
-      query: {
-        ...(searchValue.value ? { name: searchValue.value } : {}),
-        ...(selectedTypeId.value ? { typeId: selectedTypeId.value } : {})
-      }
+      query: queryObj
     }
+    console.log('[DEBUG] Load Data Payload:', JSON.stringify(payload, null, 2))
+    
     const start = Date.now()
     const res = await fetchAccommodationsPage(payload)
+    console.log('[DEBUG] Load Data Response:', res)
+    
     const data = res?.list || res?.records || res?.data?.list || []
     const newData = Array.isArray(data) ? data : []
 
@@ -134,6 +158,7 @@ const loadData = async (isLoadMore = false) => {
       hasMore.value = false
     }
   } catch (e) {
+    console.error('[DEBUG] Load Data Error:', e)
     showToast({ message: '数据加载失败', position: 'top' })
     if (isLoadMore) pageNum.value--
   } finally {
@@ -202,6 +227,7 @@ onUnmounted(() => {
         v-for="cat in categories"
         :key="cat.name"
         class="cat-item"
+        :class="{ active: selectedTypeId === cat.id }"
         @click="onCategoryClick(cat.name)"
       >
         <div class="icon-box" :style="{ background: cat.color }">
@@ -304,17 +330,19 @@ onUnmounted(() => {
 
 .category-grid {
   display: flex;
-  justify-content: space-around;
-  padding: 16px 12px;
+  flex-wrap: wrap;
+  padding: 16px 8px;
   background: #fff;
   margin: 0 12px 12px;
   border-radius: 12px;
+  gap: 12px 0;
 }
 .cat-item {
+  width: 25%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 .icon-box {
   width: 48px;
@@ -328,6 +356,19 @@ onUnmounted(() => {
 .cat-item .name {
   font-size: 12px;
   color: #333;
+  transition: all 0.3s;
+}
+
+.cat-item.active .name {
+  color: #1dd1a1;
+  font-weight: 600;
+  transform: scale(1.1);
+}
+
+.cat-item.active .icon-box {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transform: translateY(-4px);
+  border: 2px solid #fff;
 }
 
 .section-title {
@@ -459,13 +500,3 @@ onUnmounted(() => {
   font-size: 12px;
 }
 </style>
-/**
- * 返回上一页（无历史时回到推荐页）
- */
-function onBack() {
-  if (window.history.length > 1) {
-    router.back()
-  } else {
-    router.push({ name: 'recommend' })
-  }
-}

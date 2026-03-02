@@ -54,11 +54,11 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="snap-wrap">
-    <!-- 页 1：重庆夜景英雄横幅 -->
+    <!-- 页 1：梁平英雄横幅 -->
     <section class="snap-section page-hero" data-index="0">
       <div class="hero-inner">
-        <h1 class="title">重庆 · 山城夜景</h1>
-        <p class="sub">两江交汇 · 立体交通 · 火锅之都</p>
+        <h1 class="title">重庆 · 梁平</h1>
+        <p class="sub">双桂福地 · 柚乡竹海 · 非遗之都</p>
         <div class="cta">
           <van-button type="primary" round @click="onCTA('立即探索')">立即探索</van-button>
           <van-button round plain type="success" @click="scrollNext">下滑下一页</van-button>
@@ -66,62 +66,87 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <!-- 页 2：热门景点拼接 -->
+    <!-- 页 2：梁平热门景点拼接 -->
     <section class="snap-section page-scenic" data-index="1">
       <div class="header">
         <h2 class="title">热门景点</h2>
-        <p class="sub">洪崖洞 · 长江索道 · 磁器口 · 南山一棵树</p>
+        <p class="sub">双桂湖 · 百里竹海 · 双桂堂 · 滑石古寨</p>
       </div>
       <van-grid column-num="2" gutter="12" class="cards">
         <van-grid-item>
-          <div class="card"><div class="icon">🏮</div><div class="name">洪崖洞</div><div class="desc">夜景与美食集市</div></div>
+          <div class="card">
+            <div class="icon-box"><van-icon name="photo-o" color="#1989fa" /></div>
+            <div class="name">双桂湖</div>
+            <div class="desc">国家级湿地公园</div>
+          </div>
         </van-grid-item>
         <van-grid-item>
-          <div class="card"><div class="icon">🚡</div><div class="name">长江索道</div><div class="desc">空中穿越两岸</div></div>
+          <div class="card">
+            <div class="icon-box"><van-icon name="cluster-o" color="#07c160" /></div>
+            <div class="name">百里竹海</div>
+            <div class="desc">竹林氧吧，清凉避暑</div>
+          </div>
         </van-grid-item>
         <van-grid-item>
-          <div class="card"><div class="icon">🏘️</div><div class="name">磁器口</div><div class="desc">古镇与市井风情</div></div>
+          <div class="card">
+            <div class="icon-box"><van-icon name="hotel-o" color="#ee0a24" /></div>
+            <div class="name">双桂堂</div>
+            <div class="desc">西南佛教禅宗祖庭</div>
+          </div>
         </van-grid-item>
         <van-grid-item>
-          <div class="card"><div class="icon">🌲</div><div class="name">南山一棵树</div><div class="desc">俯瞰城市夜景</div></div>
+          <div class="card">
+            <div class="icon-box"><van-icon name="location-o" color="#ff976a" /></div>
+            <div class="name">滑石古寨</div>
+            <div class="desc">古寨险峻，风景独好</div>
+          </div>
         </van-grid-item>
       </van-grid>
     </section>
 
-    <!-- 页 3：美食拼接 -->
+    <!-- 页 3：梁平美食拼接 -->
     <section class="snap-section page-food" data-index="2">
       <div class="header">
-        <h2 class="title">重庆味道</h2>
-        <p class="sub">火锅 · 小面 · 甜水面 · 串串</p>
+        <h2 class="title">梁平味道</h2>
+        <p class="sub">张鸭子 · 梁平柚 · 双桂素食 · 袁驿豆腐干</p>
       </div>
       <van-cell-group inset class="menu">
-        <van-cell title="重庆火锅" label="九宫格 · 牛油锅" icon="fire">
-          <template #value><van-tag type="danger" plain size="small">人气</van-tag></template>
+        <van-cell title="梁平张鸭子" label="卤味香浓 · 酥香脆嫩" icon="shop-o">
+          <template #value><van-tag type="danger" plain size="small">非遗</van-tag></template>
         </van-cell>
-        <van-cell title="重庆小面" label="麻辣鲜香 · 极速出餐" icon="like">
-          <template #value><van-tag type="warning" plain size="small">必吃</van-tag></template>
+        <van-cell title="梁平柚" label="柚香四溢 · 果肉饱满" icon="like-o">
+          <template #value><van-tag type="warning" plain size="small">必尝</van-tag></template>
         </van-cell>
-        <van-cell title="麻辣串串" label="烟火气 · 深夜食堂" icon="smile">
-          <template #value><van-tag type="primary" plain size="small">夜市</van-tag></template>
+        <van-cell title="双桂素食" label="禅意美食 · 健康养生" icon="smile-o">
+          <template #value><van-tag type="primary" plain size="small">特色</van-tag></template>
         </van-cell>
       </van-cell-group>
     </section>
 
-    <!-- 页 4：交通与玩法 -->
+    <!-- 页 4：梁平玩法 -->
     <section class="snap-section page-play" data-index="3">
       <div class="header">
-        <h2 class="title">立体交通 · 城市玩法</h2>
-        <p class="sub">轻轨穿楼 · 山城步行 · 两江夜游</p>
+        <h2 class="title">田园风光 · 非遗玩法</h2>
+        <p class="sub">竹海漫步 · 湿地观鸟 · 非遗体验</p>
       </div>
       <van-grid column-num="3" gutter="8" class="features">
         <van-grid-item>
-          <div class="feat"><span class="icon">🚈</span><span class="text">李子坝穿楼</span></div>
+          <div class="feat">
+            <van-icon name="friends-o" size="24" color="#07c160" />
+            <span class="text">竹海漫步</span>
+          </div>
         </van-grid-item>
         <van-grid-item>
-          <div class="feat"><span class="icon">🚶</span><span class="text">山城步行</span></div>
+          <div class="feat">
+            <van-icon name="eye-o" size="24" color="#1989fa" />
+            <span class="text">湿地观鸟</span>
+          </div>
         </van-grid-item>
         <van-grid-item>
-          <div class="feat"><span class="icon">⛴️</span><span class="text">两江夜游</span></div>
+          <div class="feat">
+            <van-icon name="brush-o" size="24" color="#ff976a" />
+            <span class="text">非遗体验</span>
+          </div>
         </van-grid-item>
       </van-grid>
     </section>
@@ -129,12 +154,12 @@ onBeforeUnmount(() => {
     <!-- 页 5：行动召唤 -->
     <section class="snap-section page-cta" data-index="4">
       <div class="header">
-        <h2 class="title">开始你的重庆之旅</h2>
-        <p class="sub">精选路线 · 人气美食 · 必打卡清单</p>
+        <h2 class="title">开始你的梁平之旅</h2>
+        <p class="sub">精选路线 · 田园美食 · 非遗清单</p>
       </div>
       <div class="actions">
-        <van-button type="primary" round @click="onCTA('预约两江夜游')">预约两江夜游</van-button>
-        <van-button type="warning" round plain @click="onCTA('获取美食推荐')">获取美食推荐</van-button>
+        <van-button type="primary" round @click="onCTA('预约竹海之行')">预约竹海之行</van-button>
+        <van-button type="warning" round plain @click="onCTA('获取非遗推荐')">获取非遗推荐</van-button>
       </div>
     </section>
   </div>
@@ -178,26 +203,23 @@ onBeforeUnmount(() => {
 .page-scenic .title { font-weight: 700; font-size: 20px; color: #1565C0; }
 .page-scenic .sub { color: #607d8b; }
 .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; width: 100%; max-width: 640px; }
-.card { background: rgba(247,251,255,0.92); border: 1px solid #e6f0fb; border-radius: 12px; padding: 12px; display: grid; gap: 6px; place-items: center; }
-.card .icon { font-size: 24px; }
-.card .name { font-weight: 700; font-size: 16px; }
-.card .desc { color: #607d8b; font-size: 13px; }
+.card { background: rgba(247,251,255,0.92); border: 1px solid #e6f0fb; border-radius: 12px; padding: 12px; display: grid; gap: 6px; place-items: center; width: 100%; box-sizing: border-box; }
+.icon-box { background: #fff; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+.card .name { font-weight: 700; font-size: 15px; color: #333; }
+.card .desc { color: #607d8b; font-size: 12px; text-align: center; }
 
 /* 页 3：美食 */
 .page-food { background: transparent; }
 .page-food .header { text-align: center; margin-bottom: 10px; }
 .page-food .title { font-weight: 700; color: #b71c1c; }
 .menu { display: grid; gap: 10px; width: 100%; max-width: 520px; }
-.dish { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.94); border-radius: 12px; padding: 12px; box-shadow: 0 8px 20px rgba(183,28,28,0.08); }
-.dish .icon { font-size: 22px; }
-.dish.hotpot { border: 1px solid #ffcdd2; }
-.dish.noodle { border: 1px solid #ffe082; }
-.dish.skewer { border: 1px solid #ffab91; }
+.menu :deep(.van-cell) { border-radius: 12px; }
 
 /* 页 4：玩法 */
 .page-play { background: transparent; }
 .features { display: grid; gap: 10px; width: 100%; max-width: 520px; }
-.feat { display: flex; align-items: center; gap: 10px; background: #f7fbff; border: 1px solid #e6f0fb; border-radius: 12px; padding: 12px; }
+.feat { display: flex; flex-direction: column; align-items: center; gap: 6px; background: #fff; border: 1px solid #e6f0fb; border-radius: 12px; padding: 12px; width: 100%; box-sizing: border-box; }
+.feat .text { font-size: 13px; color: #333; font-weight: 500; }
 .feat .icon { font-size: 22px; }
 
 /* 页 5：CTA */

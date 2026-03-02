@@ -4,7 +4,7 @@
     <div class="page-header">
       <div class="header-left">
         <h2 class="greeting">早安，管理员</h2>
-        <p class="subtitle">重庆文旅数据监控中心 · 实时概览</p>
+        <p class="subtitle">梁平文旅数据监控中心 · 实时概览</p>
       </div>
       <div class="header-right">
         <el-tag type="success" effect="dark" round>今日运营正常</el-tag>

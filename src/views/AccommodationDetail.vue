@@ -16,10 +16,10 @@ const quantity = ref(1)
 
 // 模拟房东信息（如果后端没有返回的话）
 const hostInfo = ref({
-  name: '重庆老饕',
+  name: '梁平导游',
   avatar: 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg',
   tags: ['热情好客', '本地通', '回复超快'],
-  message: '欢迎来到我的小屋！这里每一处角落都是我精心布置的，希望您能感受到重庆的热情与温暖。如果有任何游玩问题，随时问我哦！'
+  message: '欢迎来到我的小屋！这里每一处角落都是我精心布置的，希望您能感受到梁平的热情与温暖。如果有任何游玩问题，随时问我哦！'
 })
 
 /**
@@ -169,7 +169,7 @@ async function onConfirmPay() {
 
           <div class="location-row">
             <van-icon name="location" color="#3f51b5" />
-            <span class="address">{{ detail?.location || '重庆市渝中区解放碑' }}</span>
+            <span class="address">{{ detail?.location || '重庆市梁平区' }}</span>
             <span class="map-link">地图 ></span>
           </div>
           <div class="meta-row">

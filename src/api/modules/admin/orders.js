@@ -9,3 +9,19 @@ import { request } from '../../http.js'
 export function fetchAdminOrdersPage(payload) {
   return request('/orders/admin/page', { method: 'POST', body: payload })
 }
+
+/**
+ * 修改订单状态（管理员）
+ * @param {Object} payload
+ */
+export function updateOrder(payload) {
+  return request('/orders', { method: 'PUT', body: payload })
+}
+
+/**
+ * 删除订单（管理员）
+ * @param {number} id
+ */
+export function deleteOrder(id) {
+  return request(`/orders/${id}`, { method: 'DELETE' })
+}
