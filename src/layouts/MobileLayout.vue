@@ -1,8 +1,9 @@
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
 import { useUserStore } from '@/store/user'
 import { showToast } from 'vant'
+import FloatingAssistant from '@/components/FloatingAssistant.vue'
 // 使用 Vant 的 Tabbar 代替 Element Plus 菜单
 
 // 选中的 Tab 索引
@@ -40,6 +41,9 @@ const tabbarRef = ref(null)
 const baseTabbarHeight = 50 // Vant 默认高度约 50px
 const safeInsetBottom = parseInt(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)').replace('px', '')) || 0
 const tabbarPlaceholder = baseTabbarHeight + safeInsetBottom
+
+const floatingRoutes = ['recommend', 'food', 'booking', 'mine']
+const showFloating = computed(() => floatingRoutes.includes(route.name))
 </script>
 
 <template>
@@ -57,6 +61,7 @@ const tabbarPlaceholder = baseTabbarHeight + safeInsetBottom
         <van-tabbar-item name="mine" icon="user-o">我的</van-tabbar-item>
       </van-tabbar>
     </nav>
+    <FloatingAssistant v-if="showFloating" />
   </div>
 </template>
 

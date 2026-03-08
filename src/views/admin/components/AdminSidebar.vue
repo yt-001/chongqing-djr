@@ -23,7 +23,7 @@
 
 <script setup>
 import { defineProps, defineEmits } from 'vue'
-import { Monitor, Location, ForkSpoon, House, Document, User } from '@element-plus/icons-vue'
+import { Monitor, Location, ForkSpoon, House, Document, User, ChatLineRound } from '@element-plus/icons-vue'
 
 const props = defineProps({
   menus: { type: Array, required: true },
@@ -37,6 +37,7 @@ const iconMap = {
   House,
   Document,
   User,
+  ChatLineRound,
 }
 
 function resolveIcon(iconName) {

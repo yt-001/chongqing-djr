@@ -38,6 +38,7 @@ export default defineConfig({
       '/dish-categories': { target: 'http://localhost:9002', changeOrigin: true },
       '/accommodation-types': { target: 'http://localhost:9002', changeOrigin: true },
       '/accommodation-facilities': { target: 'http://localhost:9002', changeOrigin: true },
+      '/ai': { target: 'http://localhost:9002', changeOrigin: true },
       // 代理静态图片资源，从后端获取
       // 注意：避免使用 /public/images 这种会让 Vite 产生导入解析错误的路径
       '/images': { 
