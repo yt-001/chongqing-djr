@@ -33,23 +33,22 @@ const onCategoryClick = (name) => {
     router.push({ name: 'guide-routes' })
     return
   }
+  if (name === '非遗文化') {
+    if (!userStore.isLoggedIn) {
+      showToast({ message: '请先登录以体验完整功能', position: 'top' })
+    }
+    router.push({ name: 'intangible-culture' })
+    return
+  }
   showToast({ message: `${name} 开发中`, position: 'top' })
 }
 
 // 顶部彩色分类（第一排）
 const categoriesTop = ref([
   { name: '路线推荐', icon: 'guide-o', color: '#26c6da' },
-  { name: '文化游', icon: 'balance-o', color: '#42a5f5' },
-  { name: '温泉游', icon: 'fire-o', color: '#ef6c00' },
-  { name: '周边游', icon: 'location-o', color: '#8e24aa' },
-])
-
-// 第二排分类
-const categoriesBottom = ref([
   { name: '旅游地图', icon: 'map-marked', color: '#29b6f6' },
   { name: '酒店民宿', icon: 'hotel-o', color: '#66bb6a' },
-  { name: '汽车票', icon: 'guide-o', color: '#ab47bc' },
-  { name: '飞机票', icon: 'share', color: '#ffa726' },
+  { name: '非遗文化', icon: 'star-o', color: '#ff9800' },
 ])
 
 // 主题横幅（示例）
@@ -209,20 +208,6 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 第二排分类 -->
-    <div class="cat-grid second">
-      <div
-        v-for="cat in categoriesBottom"
-        :key="cat.name"
-        class="cat-item"
-        :style="{ background: cat.color }"
-        @click="onCategoryClick(cat.name)"
-      >
-        <van-icon :name="cat.icon" size="20" />
-        <span class="name">{{ cat.name }}</span>
-      </div>
-    </div>
-
     <!-- 主题横幅 -->
     <div class="theme-banner">
       <van-image :src="banner.image" width="100%" height="110" fit="cover" />
@@ -268,11 +253,10 @@ onUnmounted(() => {
 /* 彩色分类网格 */
 .cat-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   margin: 12px;
 }
-.cat-grid.second { margin-top: 0; }
 .cat-item {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   color: #fff; border-radius: 10px; height: 48px;

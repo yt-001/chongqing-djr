@@ -33,6 +33,14 @@ export default [
     ]
   },
   {
+    label: '评论管理', name: 'admin-comments-root', icon: 'ChatLineRound',
+    children: [
+      { label: '景点评论管理', name: 'admin-attraction-comments' },
+      { label: '餐饮评论管理', name: 'admin-restaurant-comments' },
+      { label: '住宿评论管理', name: 'admin-accommodation-comments' }
+    ]
+  },
+  {
     label: 'AI管理', name: 'admin-ai-root', icon: 'ChatLineRound',
     children: [
       { label: '问候语管理', name: 'admin-ai-greetings' },

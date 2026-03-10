@@ -17,6 +17,7 @@ export { fetchAdminOrdersPage } from './modules/admin/orders.js' // 管理端订
 export * from './modules/admin/users.js'
 export * from './modules/admin/aiGreetings.js'
 export * from './modules/admin/aiPrompts.js'
+export * from './modules/admin/comments.js'
 export * from './modules/favorites.js' // 收藏模块
 export * from './modules/comments.js' // 评论模块
 export * from './modules/popularAttractions.js' // 热门景点

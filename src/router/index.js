@@ -16,6 +16,8 @@ const PendingVouchers = () => import('@/views/PendingVouchers.vue')
 const UnpaidOrders = () => import('@/views/UnpaidOrders.vue')
 const CompletedOrders = () => import('@/views/CompletedOrders.vue')
 const AiAssistant = () => import('@/views/AiAssistant.vue')
+const IntangibleCulture = () => import('@/views/IntangibleCulture.vue')
+const IntangibleCultureDetail = () => import('@/views/IntangibleCultureDetail.vue')
 
 
 const router = createRouter({
@@ -41,6 +43,8 @@ const router = createRouter({
     { path: '/my-favorites', name: 'my-favorites', component: () => import('@/views/MyFavorites.vue'), meta: { title: '我的收藏', hideTabbar: true } },
     { path: '/map', name: 'map-navigation', component: () => import('@/views/MapNavigation.vue'), meta: { title: '景点导航', hideTabbar: true } },
     { path: '/route-map', name: 'route-map-navigation', component: () => import('@/views/RouteMapNavigation.vue'), meta: { title: '路线详情', hideTabbar: true } },
+    { path: '/intangible-culture', name: 'intangible-culture', component: IntangibleCulture, meta: { title: '非遗文化', hideTabbar: true } },
+    { path: '/intangible-culture/:id', name: 'intangible-culture-detail', component: IntangibleCultureDetail, meta: { title: '非遗文化详情', hideTabbar: true } },
 
     { path: '/login', name: 'login', component: () => import('@/views/Login.vue'), meta: { title: '登录', hideTabbar: true } },
     { path: '/register', name: 'register', component: () => import('@/views/Register.vue'), meta: { title: '注册', hideTabbar: true } },
@@ -61,6 +65,9 @@ const router = createRouter({
         { path: 'accommodation-types', name: 'admin-accommodation-types', component: () => import('@/views/admin/AdminAccommodationTypes.vue'), meta: { title: '住宿类型', hideTabbar: true } },
         { path: 'accommodation-facilities', name: 'admin-accommodation-facilities', component: () => import('@/views/admin/AdminAccommodationFacilities.vue'), meta: { title: '住宿设施', hideTabbar: true } },
         { path: 'orders', name: 'admin-orders', component: () => import('@/views/admin/AdminOrders.vue'), meta: { title: '订单管理', hideTabbar: true } },
+        { path: 'comments/attractions', name: 'admin-attraction-comments', component: () => import('@/views/admin/AdminAttractionComments.vue'), meta: { title: '景点评论管理', hideTabbar: true } },
+        { path: 'comments/restaurants', name: 'admin-restaurant-comments', component: () => import('@/views/admin/AdminRestaurantComments.vue'), meta: { title: '餐饮评论管理', hideTabbar: true } },
+        { path: 'comments/accommodations', name: 'admin-accommodation-comments', component: () => import('@/views/admin/AdminAccommodationComments.vue'), meta: { title: '住宿评论管理', hideTabbar: true } },
         { path: 'users', name: 'admin-users', component: () => import('@/views/admin/AdminUserManagement.vue'), meta: { title: '用户管理', hideTabbar: true } },
         { path: 'ai-greetings', name: 'admin-ai-greetings', component: () => import('@/views/admin/AdminAiGreetings.vue'), meta: { title: '问候语管理', hideTabbar: true } },
         { path: 'ai-prompts', name: 'admin-ai-prompts', component: () => import('@/views/admin/AdminAiPrompts.vue'), meta: { title: '推荐问题管理', hideTabbar: true } },
