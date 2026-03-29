@@ -192,6 +192,7 @@ import {
   deleteRestaurantDish,
   uploadSingleImage,
 } from '@/api'
+import { processImageData } from '@/utils/imageUtils'
 
 const restaurants = ref([])
 
@@ -252,7 +253,17 @@ const formRef = ref()
 const fileInputRef = ref()
 const preview = reactive({ visible: false })
 const imageState = reactive({ file: null, previewUrl: '' })
-const imagePreviewUrl = computed(() => imageState.previewUrl || form.imageUrl)
+const imagePreviewUrl = computed(() => {
+  if (imageState.previewUrl) {
+    return imageState.previewUrl
+  }
+  if (form.imageUrl) {
+    // 处理图片路径，确保正确的URL格式
+    const processed = processImageData({ coverImage: form.imageUrl })
+    return processed.coverUrl
+  }
+  return ''
+})
 const form = reactive({
   id: '',
   restaurantId: undefined,

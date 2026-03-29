@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { fetchIntangibleCultureById } from '@/api/modules/intangibleCulture'
+import { processImageData } from '@/utils/imageUtils'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,15 +15,10 @@ const loading = ref(true)
 // 处理图片数据
 const imageView = computed(() => {
   if (!culture.value) return { coverUrl: '', imageUrls: [] }
-  const cover = culture.value.coverImage || ''
-  const imagesStr = culture.value.images || '[]'
-  let imageUrls = []
-  try {
-    imageUrls = typeof imagesStr === 'string' ? JSON.parse(imagesStr) : imagesStr
-  } catch (e) {
-    imageUrls = []
-  }
-  return { coverUrl: cover, imageUrls: imageUrls }
+  return processImageData({
+    coverImage: culture.value.coverImage,
+    images: culture.value.images
+  })
 })
 
 // 轮播图列表
@@ -74,7 +70,13 @@ const goBack = () => {
     <!-- 加载状态 -->
     <template v-if="loading">
       <div class="loading-container">
-        <van-skeleton :title="true" :row="3" :avatar="true" avatar-size="200" />
+        <div class="skeleton-wrapper">
+          <div class="skeleton-swipe"></div>
+          <div class="skeleton-content">
+            <van-skeleton title :row="2" />
+            <van-skeleton title :row="3" style="margin-top: 16px" />
+          </div>
+        </div>
       </div>
     </template>
 
@@ -152,7 +154,15 @@ const goBack = () => {
 }
 
 .loading-container {
-  padding: 15px;
+  padding: 0;
+}
+
+.skeleton-wrapper { width: 100%; }
+.skeleton-swipe { height: 300px; background: linear-gradient(90deg, #eaeef3 25%, #f5f6f7 50%, #eaeef3 75%); background-size: 200% 100%; animation: skeleton-loading 1.5s infinite; }
+.skeleton-content { padding: 16px; background: #fff; }
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .culture-detail {

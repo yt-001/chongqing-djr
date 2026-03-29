@@ -27,6 +27,13 @@ export default [
     ]
   },
   {
+    label: '非遗文化管理', name: 'admin-intangible-cultures-root', icon: 'Medal',
+    children: [
+      { label: '非遗文化列表', name: 'admin-intangible-cultures' },
+      { label: '非遗类型管理', name: 'admin-intangible-culture-types' }
+    ]
+  },
+  {
     label: '订单管理', name: 'admin-orders-root', icon: 'Document',
     children: [
       { label: '订单列表', name: 'admin-orders' }
@@ -47,6 +54,5 @@ export default [
       { label: '推荐问题管理', name: 'admin-ai-prompts' }
     ]
   },
-  { label: '用户管理', name: 'admin-users', icon: 'User' },
-  { label: '用户端', name: 'admin-user', icon: 'Monitor' }
+  { label: '用户管理', name: 'admin-users', icon: 'User' }
 ]

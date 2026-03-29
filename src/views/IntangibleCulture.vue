@@ -5,9 +5,14 @@ import { useRouter, useRoute } from 'vue-router'
 import { showToast, Icon as VanIcon } from 'vant'
 import { useUserStore } from '@/store/user'
 import { fetchIntangibleCulturesPage } from '@/api/modules/intangibleCulture'
+import { processImageData } from '@/utils/imageUtils'
 
 const userStore = useUserStore()
 const router = useRouter()
+
+// 搜索相关
+const searchValue = ref('')
+const isSearching = ref(false)
 
 // 加载状态
 const loading = ref(true)
@@ -32,6 +37,7 @@ const loadCultures = async (isLoadMore = false) => {
     loading.value = true
     pageNum.value = 1
     cultureList.value = []
+    hasMore.value = true
   }
   
   try {
@@ -40,6 +46,11 @@ const loadCultures = async (isLoadMore = false) => {
       pageNum: pageNum.value,
       pageSize: pageSize.value,
       query: {}
+    }
+    
+    // 如果有搜索关键词，添加到查询条件
+    if (searchValue.value.trim()) {
+      payload.query.keyword = searchValue.value.trim()
     }
     
     // 调用 API 接口
@@ -66,7 +77,21 @@ const loadCultures = async (isLoadMore = false) => {
   } finally {
     loading.value = false
     loadingMore.value = false
+    isSearching.value = false
   }
+}
+
+// 搜索处理
+const onSearch = () => {
+  isSearching.value = true
+  loadCultures(false)
+}
+
+// 清除搜索
+const onClearSearch = () => {
+  searchValue.value = ''
+  isSearching.value = true
+  loadCultures(false)
 }
 
 // 滚动事件处理
@@ -92,6 +117,10 @@ const goBack = () => {
   router.back()
 }
 
+const resolveImageUrl = (coverImage) => {
+  return processImageData({ coverImage, images: '[]' }).coverUrl || ''
+}
+
 // 页面加载时获取数据
 onMounted(() => {
   loadCultures()
@@ -113,6 +142,23 @@ onUnmounted(() => {
       <p>探索重庆梁平的非物质文化遗产</p>
     </div>
 
+    <!-- 搜索框 -->
+    <div class="search-box">
+      <van-search
+        v-model="searchValue"
+        shape="round"
+        background="transparent"
+        placeholder="搜索非遗名称、类型、传承人"
+        @search="onSearch"
+        @clear="onClearSearch"
+        show-action
+      >
+        <template #action>
+          <div class="search-btn" @click="onSearch">搜索</div>
+        </template>
+      </van-search>
+    </div>
+
     <!-- 加载占位 -->
     <template v-if="loading">
       <div class="loading-container">
@@ -132,7 +178,7 @@ onUnmounted(() => {
           @click="onOpenCulture(culture.id)"
         >
           <van-image 
-            :src="culture.coverImage" 
+            :src="resolveImageUrl(culture.coverImage)" 
             width="100%" 
             height="180" 
             fit="cover" 
@@ -191,6 +237,21 @@ onUnmounted(() => {
 .page-header p {
   font-size: 14px;
   opacity: 0.9;
+}
+
+.search-box {
+  background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+  padding: 0 12px 12px;
+}
+
+.search-box :deep(.van-search__content) {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.search-btn {
+  color: #fff;
+  font-size: 14px;
+  padding: 0 8px;
 }
 
 .loading-container {

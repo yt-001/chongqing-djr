@@ -332,7 +332,14 @@ async function startPay() {
 <template>
   <div class="scenic-detail">
     <div v-if="loading" class="loading-state">
-      <van-loading type="spinner" vertical>加载中...</van-loading>
+      <div class="skeleton-wrapper">
+        <div class="skeleton-cover"></div>
+        <div class="skeleton-content">
+          <van-skeleton title :row="2" />
+          <van-skeleton title :row="3" style="margin-top: 16px" />
+          <van-skeleton title :row="4" style="margin-top: 16px" />
+        </div>
+      </div>
     </div>
     <template v-else-if="scenic">
       <!-- 顶部封面与基本信息 -->
@@ -475,7 +482,14 @@ async function startPay() {
 
 <style scoped>
 .scenic-detail { background-color: #f5f6f7; min-height: 100vh; }
-.loading-state { padding: 50px 0; display: flex; justify-content: center; }
+.loading-state { min-height: 100vh; }
+.skeleton-wrapper { width: 100%; }
+.skeleton-cover { height: 240px; background: linear-gradient(90deg, #eaeef3 25%, #f5f6f7 50%, #eaeef3 75%); background-size: 200% 100%; animation: skeleton-loading 1.5s infinite; }
+.skeleton-content { padding: 16px; background: #fff; }
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 .cover { position: relative; height: 240px; background-color: #eaeef3; background-size: cover; background-position: center; background-repeat: no-repeat; }
 .cover :deep(.van-nav-bar) { background: transparent; }
 .cover :deep(.van-nav-bar .van-icon), .cover :deep(.van-nav-bar__text) { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }

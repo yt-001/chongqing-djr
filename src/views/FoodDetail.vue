@@ -160,9 +160,15 @@ async function toggleFav() {
 </script>
 
 <template>
-  <div v-if="loading" class="food-page">
-    <van-skeleton title :row="5" />
-    <van-skeleton title :row="5" style="margin-top: 20px" />
+  <div v-if="loading" class="food-page loading-state">
+    <div class="skeleton-wrapper">
+      <div class="skeleton-banner"></div>
+      <div class="skeleton-content">
+        <van-skeleton title :row="2" />
+        <van-skeleton title :row="3" style="margin-top: 16px" />
+        <van-skeleton title :row="4" style="margin-top: 16px" />
+      </div>
+    </div>
   </div>
   <div v-else-if="restaurant" class="food-page">
     <!-- 返回导航条 -->
@@ -284,4 +290,12 @@ async function toggleFav() {
 .grid-info { display: flex; align-items: center; justify-content: space-between; padding: 8px; }
 .grid-info .name { font-size: 14px; font-weight: 600; color: #333; }
 .grid-info .price { font-size: 13px; color: #12b981; font-weight: 700; }
+.loading-state { min-height: 100vh; background: #f5f6f7; }
+.skeleton-wrapper { width: 100%; }
+.skeleton-banner { height: 180px; background: linear-gradient(90deg, #eaeef3 25%, #f5f6f7 50%, #eaeef3 75%); background-size: 200% 100%; animation: skeleton-loading 1.5s infinite; }
+.skeleton-content { padding: 16px; background: #fff; }
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 </style>

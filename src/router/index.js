@@ -64,6 +64,8 @@ const router = createRouter({
         { path: 'accommodations', name: 'admin-accommodations', component: () => import('@/views/admin/AdminAccommodations.vue'), meta: { title: '住宿管理', hideTabbar: true } },
         { path: 'accommodation-types', name: 'admin-accommodation-types', component: () => import('@/views/admin/AdminAccommodationTypes.vue'), meta: { title: '住宿类型', hideTabbar: true } },
         { path: 'accommodation-facilities', name: 'admin-accommodation-facilities', component: () => import('@/views/admin/AdminAccommodationFacilities.vue'), meta: { title: '住宿设施', hideTabbar: true } },
+        { path: 'intangible-cultures', name: 'admin-intangible-cultures', component: () => import('@/views/admin/AdminIntangibleCultures.vue'), meta: { title: '非遗文化列表', hideTabbar: true } },
+        { path: 'intangible-culture-types', name: 'admin-intangible-culture-types', component: () => import('@/views/admin/AdminIntangibleCultureTypes.vue'), meta: { title: '非遗类型管理', hideTabbar: true } },
         { path: 'orders', name: 'admin-orders', component: () => import('@/views/admin/AdminOrders.vue'), meta: { title: '订单管理', hideTabbar: true } },
         { path: 'comments/attractions', name: 'admin-attraction-comments', component: () => import('@/views/admin/AdminAttractionComments.vue'), meta: { title: '景点评论管理', hideTabbar: true } },
         { path: 'comments/restaurants', name: 'admin-restaurant-comments', component: () => import('@/views/admin/AdminRestaurantComments.vue'), meta: { title: '餐饮评论管理', hideTabbar: true } },
@@ -71,7 +73,6 @@ const router = createRouter({
         { path: 'users', name: 'admin-users', component: () => import('@/views/admin/AdminUserManagement.vue'), meta: { title: '用户管理', hideTabbar: true } },
         { path: 'ai-greetings', name: 'admin-ai-greetings', component: () => import('@/views/admin/AdminAiGreetings.vue'), meta: { title: '问候语管理', hideTabbar: true } },
         { path: 'ai-prompts', name: 'admin-ai-prompts', component: () => import('@/views/admin/AdminAiPrompts.vue'), meta: { title: '推荐问题管理', hideTabbar: true } },
-        { path: 'user', name: 'admin-user', component: () => import('@/views/admin/AdminUserClient.vue'), meta: { title: '用户端', hideTabbar: true } },
         { path: 'profile', name: 'admin-profile', component: () => import('@/views/admin/Profile.vue'), meta: { title: '个人中心', hideTabbar: true } }
       ]
     }

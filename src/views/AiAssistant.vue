@@ -16,7 +16,7 @@ const typing = ref(false)
 const typingText = ref('')
 let typingTimer = null
 let greetingTimer = null
-const greetingText = ref('你好，我是梁平文旅智能客服。可以帮你解答景点、美食、路线和出行相关问题。')
+const greetingText = ref('')
 const messages = ref([])
 const cacheKey = ref('ai_chat_history')
 const cacheReady = ref(false)
@@ -111,8 +111,9 @@ onMounted(async () => {
   loadHistory()
   cacheReady.value = true
   thinking.value = true
+  let greeting = ''
   try {
-    const greeting = await fetchAiGreetingRandom()
+    greeting = await fetchAiGreetingRandom()
     if (greeting) greetingText.value = greeting
   } catch (_) {}
   try {
@@ -122,11 +123,14 @@ onMounted(async () => {
       promptKey.value = Date.now()
     }
   } catch (_) {}
-  greetingTimer = setTimeout(() => {
-    thinking.value = false
-    startTyping(greetingText.value)
-    greetingTimer = null
-  }, 500)
+  thinking.value = false
+  if (messages.value.length === 0) {
+    if (!userStore.isLoggedIn) {
+      startTyping('您好，欢迎使用梁平文旅智能客服。请先登录后再进行咨询，登录后我可以为您提供更全面的服务。')
+    } else if (greeting) {
+      startTyping(greeting)
+    }
+  }
 })
 
 onUnmounted(() => {
@@ -299,6 +303,7 @@ function isExpired(savedAt) {
 }
 .ai-item.assistant {
   justify-content: flex-start;
+  padding-left: 8px;
 }
 .ai-item.user {
   justify-content: flex-end;
@@ -323,7 +328,7 @@ function isExpired(savedAt) {
   margin-right: 0;
 }
 .ai-bubble {
-  max-width: 74%;
+  max-width: 80%;
   padding: 10px 12px;
   border-radius: 14px;
   font-size: 14px;

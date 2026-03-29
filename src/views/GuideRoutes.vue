@@ -4,8 +4,10 @@ import { useRouter } from 'vue-router'
 import { fetchGuideRouteCards } from '@/api/modules/guideRoutes.js'
 import { processImageData } from '@/utils/imageUtils.js'
 import { showToast } from 'vant'
+import { useUserStore } from '@/store/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 const routes = ref([])
 const loading = ref(true)
 
@@ -25,7 +27,10 @@ const loadData = async () => {
 const goBack = () => router.back()
 
 const goToDetail = (routeId) => {
-  // 跳转到新的路线地图导航页，并携带 routeId
+  if (!userStore.isLoggedIn) {
+    showToast({ message: '请先登录后再查看路线详情', position: 'top' })
+    return
+  }
   router.push({ name: 'route-map-navigation', query: { routeId } })
 }
 
@@ -52,7 +57,14 @@ onMounted(() => {
 
     <div class="content">
       <div v-if="loading" class="loading-state">
-        <van-loading type="spinner" vertical color="#1989fa">加载精彩路线中...</van-loading>
+        <div class="skeleton-list">
+          <div class="skeleton-card" v-for="n in 2" :key="n">
+            <div class="skeleton-cover"></div>
+            <div class="skeleton-info">
+              <van-skeleton title :row="2" />
+            </div>
+          </div>
+        </div>
       </div>
 
       <div v-else-if="routes.length" class="route-list">
@@ -94,6 +106,16 @@ onMounted(() => {
 
 .content {
   padding: 16px;
+}
+
+.loading-state { width: 100%; }
+.skeleton-list { display: flex; flex-direction: column; gap: 16px; }
+.skeleton-card { background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06); }
+.skeleton-cover { height: 180px; background: linear-gradient(90deg, #eaeef3 25%, #f5f6f7 50%, #eaeef3 75%); background-size: 200% 100%; animation: skeleton-loading 1.5s infinite; }
+.skeleton-info { padding: 16px; }
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .route-list {

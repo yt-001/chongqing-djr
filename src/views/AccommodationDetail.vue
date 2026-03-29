@@ -180,7 +180,14 @@ async function onConfirmPay() {
     </div>
 
     <div v-if="loading" class="loading-box">
-      <van-loading vertical>加载中...</van-loading>
+      <div class="skeleton-wrapper">
+        <div class="skeleton-swipe"></div>
+        <div class="skeleton-content">
+          <van-skeleton title :row="2" />
+          <van-skeleton title :row="3" style="margin-top: 16px" />
+          <van-skeleton title :row="4" style="margin-top: 16px" />
+        </div>
+      </div>
     </div>
 
     <template v-else>
@@ -307,10 +314,18 @@ async function onConfirmPay() {
   min-height: 100vh;
   background-color: #f7f8fa;
   position: relative;
-  padding-top: 56px; /* 预留头部空间，避免遮挡轮播图 */
+  padding-top: 56px;
 }
 
-/* 导航栏 */
+.loading-box { min-height: calc(100vh - 56px); }
+.skeleton-wrapper { width: 100%; }
+.skeleton-swipe { height: 220px; background: linear-gradient(90deg, #eaeef3 25%, #f5f6f7 50%, #eaeef3 75%); background-size: 200% 100%; animation: skeleton-loading 1.5s infinite; }
+.skeleton-content { padding: 16px; background: #fff; border-radius: 16px 16px 0 0; margin-top: -16px; position: relative; }
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 .nav-bar {
   position: fixed;
   top: 0;
