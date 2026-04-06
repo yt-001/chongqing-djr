@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { showToast } from 'vant'
+import { showToast, showNotify } from 'vant'
 import { fetchAccommodationById } from '@/api/modules/accommodations.js'
 import { mapFacilitiesToItems } from '@/utils/facilityIcons.js'
 import { processImageData } from '@/utils/imageUtils.js'
@@ -15,6 +15,7 @@ const userStore = useUserStore()
 const detail = ref(null)
 const loading = ref(true)
 const payVisible = ref(false)
+const contactVisible = ref(false)
 const quantity = ref(1)
 const isFav = ref(false)
 const favLoading = ref(false)
@@ -41,8 +42,8 @@ async function checkFavorite() {
   if (!userStore.isLoggedIn) return
   const id = route.params.id
   try {
-    const res = await checkFavoriteAccommodation(id)
-    isFav.value = !!res.data
+    const res = await checkFavoriteAccommodation({ accommodationId: id })
+    isFav.value = !!res
   } catch (e) {
     console.error('检查收藏状态失败', e)
   }
@@ -54,18 +55,18 @@ async function onToggleFavorite() {
     router.push({ name: 'login', query: { redirect: route.fullPath } })
     return
   }
-  
+
   if (favLoading.value) return
   favLoading.value = true
-  
+
   const id = route.params.id
   try {
     if (isFav.value) {
-      await removeFavoriteAccommodation(id)
+      await removeFavoriteAccommodation({ accommodationId: id })
       isFav.value = false
       showToast('已取消收藏')
     } else {
-      await addFavoriteAccommodation(id)
+      await addFavoriteAccommodation({ accommodationId: id })
       isFav.value = true
       showToast('收藏成功')
     }
@@ -79,7 +80,7 @@ async function onToggleFavorite() {
 async function loadData() {
   const id = route.params.id
   if (!id) return
-  
+
   try {
     loading.value = true
     const res = await fetchAccommodationById(id)
@@ -129,6 +130,13 @@ const facilityItems = computed(() => {
 function onCall(phone) {
   if (!phone) return showToast('暂无联系电话')
   window.location.href = `tel:${phone}`
+}
+
+/**
+ * 显示联系弹窗
+ */
+function showContact() {
+  contactVisible.value = true
 }
 
 // 图标匹配逻辑已抽取到 '@/utils/facilityIcons.js'
@@ -222,7 +230,6 @@ async function onConfirmPay() {
           <div class="location-row">
             <van-icon name="location" color="#3f51b5" />
             <span class="address">{{ detail?.location || '重庆市梁平区' }}</span>
-            <span class="map-link">地图 ></span>
           </div>
           <div class="meta-row">
             <span class="capacity">宜住{{ detail?.capacity || 2 }}人</span>
@@ -278,12 +285,38 @@ async function onConfirmPay() {
 
       <!-- 底部操作栏 -->
       <van-action-bar>
-        <van-action-bar-icon icon="chat-o" text="客服" color="#ee0a24" />
         <van-action-bar-icon :icon="isFav ? 'star' : 'star-o'" text="收藏" :color="isFav ? '#ff5000' : '#333'" @click="onToggleFavorite" />
-        <van-action-bar-button type="warning" text="加入行程" />
-        <van-action-bar-button type="primary" text="联系前台" @click="onCall(detail?.contactPhone)" />
+        <van-action-bar-button type="primary" text="联系前台" @click="showContact" />
         <van-action-bar-button type="danger" text="立即预定" @click="onBook" />
       </van-action-bar>
+
+      <!-- 联系弹窗 -->
+      <van-popup v-model:show="contactVisible" round position="bottom" style="padding: 20px;">
+        <div class="contact-popup">
+          <div class="contact-title">联系前台</div>
+          <div class="contact-phone" v-if="detail?.contactPhone">
+            <van-icon name="phone-o" size="24" color="#1989fa" />
+            <span>{{ detail.contactPhone }}</span>
+          </div>
+          <div class="contact-no-phone" v-else>
+            暂无联系电话
+          </div>
+          <van-button
+            v-if="detail?.contactPhone"
+            block
+            type="primary"
+            round
+            style="margin-top: 16px;"
+            @click="onCall(detail.contactPhone)"
+          >
+            拨打电话
+          </van-button>
+          <van-button block round style="margin-top: 12px;" @click="contactVisible = false">
+            取消
+          </van-button>
+        </div>
+      </van-popup>
+
       <van-popup v-model:show="payVisible" round position="bottom">
         <div style="padding:16px 16px 24px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
@@ -457,9 +490,6 @@ async function onConfirmPay() {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.location-row .map-link {
-  color: #1989fa;
-}
 
 /* 房东卡片 - 亲民感 */
 .host-card {
@@ -552,5 +582,30 @@ async function onConfirmPay() {
   display: flex;
   justify-content: center;
   padding-top: 100px;
+}
+
+/* 联系弹窗样式 */
+.contact-popup {
+  text-align: center;
+}
+.contact-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 20px;
+}
+.contact-phone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 24px;
+  font-weight: 500;
+  color: #1989fa;
+  padding: 20px 0;
+}
+.contact-no-phone {
+  color: #999;
+  padding: 20px 0;
 }
 </style>

@@ -217,27 +217,14 @@ const handleOpenView = () => {
 
     </div>
 
-    <!-- 快捷功能区 1 -->
+    <!-- 快捷功能区 -->
     <van-cell-group inset class="block">
       <van-grid :column-num="4" clickable>
         <van-grid-item icon="orders-o" text="待消费卷" @click="onFeatureClick('待消费卷', 'pending-vouchers')" />
-        <van-grid-item icon="service-o" text="客服中心" @click="onFeatureClick('客服中心')" />
         <van-grid-item icon="star-o" text="我的收藏" @click="onFeatureClick('我的收藏', 'my-favorites')" />
-        <van-grid-item icon="coupon-o" text="优惠券" @click="onFeatureClick('优惠券')" />
         <van-grid-item icon="clock-o" text="未完成" @click="onFeatureClick('未完成', 'incomplete-orders')" />
         <van-grid-item icon="passed" text="已完成" @click="onFeatureClick('已完成', 'completed-orders')" />
-      </van-grid>
-    </van-cell-group>
-
-    <!-- 快捷功能区 2 -->
-    <van-cell-group inset class="block">
-      <van-grid :column-num="4" clickable>
-        <van-grid-item icon="description" text="用户协议" @click="onFeatureClick('用户协议')" />
-        <van-grid-item icon="award-o" text="平台资质" @click="onFeatureClick('平台资质')" />
-        <van-grid-item icon="friends-o" text="我要合作" @click="onFeatureClick('我要合作')" />
-        <van-grid-item icon="chat-o" text="消息通知" @click="onFeatureClick('消息通知')" />
         <van-grid-item icon="manager-o" text="个人信息" @click="handleOpenView" />
-        <van-grid-item icon="notes-o" text="规则中心" @click="onFeatureClick('规则中心')" />
       </van-grid>
     </van-cell-group>
 

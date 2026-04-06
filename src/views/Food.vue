@@ -179,10 +179,11 @@ async function ensureFavState(restaurantId) {
   }
   try {
     const res = await checkFavoriteRestaurant({ restaurantId: id, userId: userStore.user?.id })
-    const yes = !!res
+    const yes = res === true
     favStateMap.value.set(id, yes)
     return yes
-  } catch {
+  } catch (e) {
+    console.error('检查收藏状态失败:', e)
     favStateMap.value.set(id, false)
     return false
   }
@@ -208,6 +209,7 @@ async function toggleFavRestaurantById(restaurantId) {
       showToast('已添加到收藏')
     }
   } catch (e) {
+    console.error('收藏操作失败:', e)
     if (e?.status === 403) {
       showToast('请先登录')
       return
@@ -219,7 +221,7 @@ async function toggleFavRestaurantById(restaurantId) {
 async function hydrateFavStatesFromRestaurants(restaurants) {
   if (!userStore.isLoggedIn) return
   const ids = (Array.isArray(restaurants) ? restaurants : [])
-    .map(r => Number(r?.id))
+    .map(r => Number(r?.restaurantId || r?.id))
     .filter(n => Number.isFinite(n))
     .filter(n => !favStateMap.value.has(n))
   if (ids.length === 0) return
@@ -313,6 +315,8 @@ const loadData = async (isLoadMore = false) => {
     if (newData.length < payload.pageSize) {
       hasMore.value = false
     }
+    
+    await hydrateFavStatesFromRestaurants(newData)
   } catch (e) {
     showToast({ message: '数据加载失败', position: 'top' })
     if (isLoadMore) pageNum.value--
@@ -499,6 +503,7 @@ async function loadRecommendedDishes(reset = false) {
     } else {
       recPageNum.value += 1
     }
+    await hydrateFavStatesFromRestaurants(rows)
   } catch {
     if (reset) recommendedDishes.value = []
     recHasMore.value = false
